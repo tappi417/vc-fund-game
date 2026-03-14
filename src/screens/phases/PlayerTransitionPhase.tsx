@@ -39,7 +39,7 @@ export function PlayerTransitionPhase() {
         </p>
 
         <button
-          onClick={() => dispatchGame({ type: 'ADVANCE_PHASE' })}
+          onClick={() => dispatchGame({ type: 'CONFIRM_PLAYER_READY' })}
           className="w-full px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-lg rounded-xl transition-colors"
         >
           ゲームを続ける

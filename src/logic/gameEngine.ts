@@ -92,27 +92,57 @@ export function getExitModifierFromEvent(event: EventCard | null): number {
   return total;
 }
 
+/**
+ * バリュエーション追加倍率をイベントから取得。
+ * valuationModifier は「成長後バリュエーションへの追加乗数」として扱う。
+ * 例: valuationModifier = 0.5 → 成長後 × 1.5
+ */
+function getValuationModifierFromEvent(
+  event: EventCard | null,
+  sector: Sector,
+): number {
+  if (!event) return 0;
+  let total = 0;
+  for (const eff of event.effects) {
+    if ((eff.target === 'all' || eff.target === sector) && eff.valuationModifier != null) {
+      total += eff.valuationModifier;
+    }
+  }
+  return total;
+}
+
 // ──────────────────────────────────────────────
-// バリュエーション更新
+// バリュエーション更新 (Fix 1.5: valuationModifier 適用)
 // ──────────────────────────────────────────────
 
 function applyGrowthValuation(
   current: number,
   result: GrowthResult,
+  event: EventCard | null,
+  sector: Sector,
 ): number {
+  let base = current;
+
   if (result === 'growth') {
     const { min, max } = VALUATION_MULTIPLIER.growth;
-    return Math.round((current * randomFloat(min, max)) / 100_000_000) * 100_000_000;
-  }
-  if (result === 'rapid_growth') {
+    base = current * randomFloat(min, max);
+  } else if (result === 'rapid_growth') {
     const { min, max } = VALUATION_MULTIPLIER.rapid_growth;
-    return Math.round((current * randomFloat(min, max)) / 100_000_000) * 100_000_000;
-  }
-  if (result === 'breakout') {
+    base = current * randomFloat(min, max);
+  } else if (result === 'breakout') {
     const { min, max } = VALUATION_MULTIPLIER.breakout;
-    return Math.round((current * randomFloat(min, max)) / 100_000_000) * 100_000_000;
+    base = current * randomFloat(min, max);
+  } else {
+    return current; // stable / struggling は変化なし
   }
-  return current;
+
+  // イベントの valuationModifier を追加乗数として適用
+  const extraMultiplier = getValuationModifierFromEvent(event, sector);
+  if (extraMultiplier !== 0) {
+    base = base * (1 + extraMultiplier);
+  }
+
+  return Math.round(base / 100_000_000) * 100_000_000;
 }
 
 // ──────────────────────────────────────────────
@@ -121,6 +151,7 @@ function applyGrowthValuation(
 
 export function resolveExitJudgment(
   startup: Startup,
+  baseValuation: number,   // Fix 3.3: 成長後バリュエーションを受け取る
   event: EventCard | null,
   players: Player[],
 ): ExitJudgmentResult {
@@ -130,13 +161,13 @@ export function resolveExitJudgment(
   const modifiedTotal = Math.min(12, Math.max(2, rawTotal + eventModifier));
   const result: ExitResult = getExitResult(modifiedTotal);
 
-  let exitValuation = startup.currentValuation;
+  let exitValuation = baseValuation;
 
   if (result !== 'fail') {
     const multiplierKey = result as 'ma' | 'ipo' | 'mega_ipo';
     const { min, max } = EXIT_MULTIPLIER[multiplierKey];
     exitValuation = Math.round(
-      (startup.currentValuation * randomFloat(min, max)) / 100_000_000,
+      (baseValuation * randomFloat(min, max)) / 100_000_000,
     ) * 100_000_000;
   }
 
@@ -165,6 +196,7 @@ export function resolveExitJudgment(
 
 // ──────────────────────────────────────────────
 // 成長判定（1社分）
+// Fix 3.3: Series C Breakout は成長倍率をExit判定のベースに使用
 // ──────────────────────────────────────────────
 
 export function resolveGrowthJudgment(
@@ -188,29 +220,36 @@ export function resolveGrowthJudgment(
   const previousStage = startup.currentStage;
   const previousValuation = startup.currentValuation;
 
-  // Series C の場合は成長判定→Exit判定へ
+  // Series C の場合は Exit 判定へ
   const isExitJudgment = startup.currentStage === 'series_c';
   let exitResult: ExitJudgmentResult | undefined;
   let newStage = previousStage;
   let newValuation = previousValuation;
 
   if (isExitJudgment) {
-    exitResult = resolveExitJudgment(startup, event, players);
+    // Fix 3.3: Breakout でも成長倍率をまずバリュエーションに反映してからExit判定
+    const preExitValuation = result === 'death'
+      ? previousValuation
+      : applyGrowthValuation(previousValuation, result, event, startup.sector);
+
+    exitResult = resolveExitJudgment(startup, preExitValuation, event, players);
     if (exitResult.result !== 'fail') {
       newStage = 'exited';
       newValuation = exitResult.exitValuation;
+    } else {
+      // Exit失敗 → series_c のまま、バリュエーションは事前計算値を反映
+      newValuation = preExitValuation;
     }
   } else if (result === 'death') {
     newStage = 'dead';
   } else if (result === 'struggling' || result === 'stable') {
-    // ステージ変わらず、バリュエーションも変わらず
     newValuation = previousValuation;
   } else {
     // growth / rapid_growth / breakout → ステージ進行 + バリュエーション更新
     newStage = advanceStage(previousStage);
-    newValuation = applyGrowthValuation(previousValuation, result);
+    newValuation = applyGrowthValuation(previousValuation, result, event, startup.sector);
 
-    // breakout は2段階進行
+    // breakout は2段階進行（series_c は上限）
     if (result === 'breakout' && newStage !== 'series_c') {
       newStage = advanceStage(newStage);
     }
@@ -236,11 +275,15 @@ export function resolveGrowthJudgment(
 
 // ──────────────────────────────────────────────
 // 全スタートアップの成長判定
+// Fix 3.2: 投資済み企業のみ判定
 // ──────────────────────────────────────────────
 
 export function resolveAllGrowth(game: GameState): GrowthJudgmentResult[] {
   const activeStatuses = new Set(['growing', 'stable', 'struggling']);
-  const activeStartups = game.allStartups.filter(s => activeStatuses.has(s.status));
+  // 投資済み（investors.length > 0）かつアクティブなスタートアップのみ判定
+  const activeStartups = game.allStartups.filter(
+    s => activeStatuses.has(s.status) && s.investors.length > 0,
+  );
 
   return activeStartups.map(startup =>
     resolveGrowthJudgment(startup, game.currentEvent, game.players),
@@ -249,6 +292,7 @@ export function resolveAllGrowth(game: GameState): GrowthJudgmentResult[] {
 
 // ──────────────────────────────────────────────
 // 成長判定結果をゲームステートに適用
+// Fix 1.6: specialEffect (random_death, force_ma_exit) を実装
 // ──────────────────────────────────────────────
 
 export function applyGrowthResultsToState(
@@ -258,7 +302,7 @@ export function applyGrowthResultsToState(
   const resultMap = new Map(results.map(r => [r.startupId, r]));
 
   // スタートアップ更新
-  const updatedStartups = game.allStartups.map(startup => {
+  let updatedStartups = game.allStartups.map(startup => {
     const r = resultMap.get(startup.id);
     if (!r) return { ...startup, stageAdvancedThisRound: false };
 
@@ -272,11 +316,9 @@ export function applyGrowthResultsToState(
     if (r.isExitJudgment && r.exitResult && r.exitResult.result !== 'fail') {
       const er = r.exitResult;
       newStatus =
-        er.result === 'mega_ipo'
-          ? 'exited_mega_ipo'
-          : er.result === 'ipo'
-          ? 'exited_ipo'
-          : 'exited_ma';
+        er.result === 'mega_ipo' ? 'exited_mega_ipo' :
+        er.result === 'ipo'      ? 'exited_ipo' :
+                                   'exited_ma';
       exitValuation = er.exitValuation;
       exitRound = game.currentRound;
       exitType = er.result === 'ma' ? 'ma' : er.result === 'ipo' ? 'ipo' : 'mega_ipo';
@@ -286,15 +328,9 @@ export function applyGrowthResultsToState(
       consecutiveStruggling = 0;
     } else if (r.result === 'struggling') {
       consecutiveStruggling += 1;
-      // 2連続苦戦で死亡リスク追加判定（仕様: 確率的死亡）
-      if (consecutiveStruggling >= 2) {
-        const roll = secureRandom();
-        if (roll < 0.3) {
-          newStatus = 'dead';
-          consecutiveStruggling = 0;
-        } else {
-          newStatus = 'struggling';
-        }
+      if (consecutiveStruggling >= 2 && secureRandom() < 0.3) {
+        newStatus = 'dead';
+        consecutiveStruggling = 0;
       } else {
         newStatus = 'struggling';
       }
@@ -306,17 +342,12 @@ export function applyGrowthResultsToState(
       newStatus = 'growing';
     }
 
-    const newValuationHistory = [
-      ...startup.valuationHistory,
-      { round: game.currentRound, valuation: r.newValuation },
-    ];
-
     return {
       ...startup,
       status: newStatus,
       currentStage: r.newStage,
       currentValuation: r.newValuation,
-      valuationHistory: newValuationHistory,
+      valuationHistory: [...startup.valuationHistory, { round: game.currentRound, valuation: r.newValuation }],
       consecutiveStruggling,
       stageAdvancedThisRound,
       exitValuation,
@@ -325,16 +356,76 @@ export function applyGrowthResultsToState(
     };
   });
 
+  // Fix 1.6: specialEffect の適用
+  const event = game.currentEvent;
+  if (event) {
+    for (const eff of event.effects) {
+      if (!eff.specialEffect) continue;
+
+      if (eff.specialEffect === 'random_death') {
+        // 生存中かつ未投資のスタートアップからランダムに1社を死亡させる
+        const candidates = updatedStartups.filter(
+          s => (s.status === 'stable' || s.status === 'struggling') && s.investors.length === 0,
+        );
+        if (candidates.length > 0) {
+          const victim = candidates[Math.floor(secureRandom() * candidates.length)];
+          updatedStartups = updatedStartups.map(s =>
+            s.id === victim.id ? { ...s, status: 'dead' as const, currentStage: 'dead' as const } : s,
+          );
+        }
+      }
+
+      if (eff.specialEffect === 'force_ma_exit') {
+        // Series C の全企業を強制M&A Exit（投資済みのみ）
+        const forceTargets = updatedStartups.filter(
+          s => s.currentStage === 'series_c' && s.investors.length > 0,
+        );
+        for (const target of forceTargets) {
+          const { min, max } = EXIT_MULTIPLIER.ma;
+          const exitVal = Math.round(
+            (target.currentValuation * randomFloat(min, max)) / 100_000_000,
+          ) * 100_000_000;
+          updatedStartups = updatedStartups.map(s =>
+            s.id !== target.id ? s : {
+              ...s,
+              status: 'exited_ma' as const,
+              currentStage: 'exited' as const,
+              exitValuation: exitVal,
+              exitRound: game.currentRound,
+              exitType: 'ma' as const,
+            },
+          );
+        }
+      }
+      // deal_flow_reduce はディール配布フェーズで参照するため、ここでは無処理
+    }
+  }
+
   // プレイヤーへのExit回収分を反映
   const updatedPlayers = game.players.map(player => {
     let realizedReturns = player.realizedReturns;
+
     for (const r of results) {
       if (!r.isExitJudgment || !r.exitResult || r.exitResult.result === 'fail') continue;
       const ret = r.exitResult.returnsPerPlayer.find(x => x.playerId === player.id);
-      if (ret) {
-        realizedReturns += ret.amount;
+      if (ret) realizedReturns += ret.amount;
+    }
+
+    // force_ma_exit 分の回収も計上
+    if (event?.effects.some(e => e.specialEffect === 'force_ma_exit')) {
+      for (const startup of updatedStartups) {
+        if (startup.status !== 'exited_ma' || startup.exitRound !== game.currentRound) continue;
+        // results に含まれていない（通常判定外）Exit
+        const alreadyCounted = results.some(r => r.startupId === startup.id && r.exitResult?.result !== 'fail');
+        if (!alreadyCounted) {
+          const inv = player.portfolio.find(i => i.startupId === startup.id);
+          if (inv && startup.exitValuation != null) {
+            realizedReturns += Math.round(startup.exitValuation * (inv.ownershipPercent / 100));
+          }
+        }
       }
     }
+
     return { ...player, realizedReturns };
   });
 
@@ -348,6 +439,8 @@ export function applyGrowthResultsToState(
 
 // ──────────────────────────────────────────────
 // ディール配布
+// Fix 3.1: late ラウンドでも handDeals をクリア
+// Fix 1.6: deal_flow_reduce specialEffect を参照
 // ──────────────────────────────────────────────
 
 export function distributeDealsForRound(game: GameState): GameState {
@@ -355,20 +448,27 @@ export function distributeDealsForRound(game: GameState): GameState {
   const config = DEAL_DISTRIBUTION[phase];
 
   if (phase === 'late') {
-    // ラウンド6〜10は新規ディールなし
-    return game;
+    // Fix 3.1: 手札を期限切れにする
+    const clearedPlayers = game.players.map(p => ({ ...p, handDeals: [] as DealCard[] }));
+    return { ...game, players: clearedPlayers, sharedDeals: [] };
   }
 
+  const hasDealFlowReduce = game.currentEvent?.effects.some(
+    e => e.specialEffect === 'deal_flow_reduce',
+  ) ?? false;
+
+  // deal_flow_reduce 発動時は個別ディールを1枚減らす
   const { min, max } = config.individual;
-  const sharedCount = config.shared;
+  const adjustedMin = hasDealFlowReduce ? Math.max(0, min - 1) : min;
+  const adjustedMax = hasDealFlowReduce ? Math.max(0, max - 1) : max;
+  const sharedCount = hasDealFlowReduce ? Math.max(0, config.shared - 1) : config.shared;
 
   let deck = [...game.dealDeck];
-  let newPlayers = game.players.map(p => ({ ...p, handDeals: [] as DealCard[] }));
+  const newPlayers = game.players.map(p => ({ ...p, handDeals: [] as DealCard[] }));
   const newSharedDeals: DealCard[] = [];
 
-  // 個別ディール配布
   for (let pi = 0; pi < newPlayers.length; pi++) {
-    const count = Math.floor(secureRandom() * (max - min + 1)) + min;
+    const count = Math.floor(secureRandom() * (adjustedMax - adjustedMin + 1)) + adjustedMin;
     const hand: DealCard[] = [];
     for (let i = 0; i < count && deck.length > 0; i++) {
       const card = { ...deck.shift()!, assignedToPlayerId: newPlayers[pi].id };
@@ -377,7 +477,6 @@ export function distributeDealsForRound(game: GameState): GameState {
     newPlayers[pi] = { ...newPlayers[pi], handDeals: hand };
   }
 
-  // 共有ディール配布
   for (let i = 0; i < sharedCount && deck.length > 0; i++) {
     const card = { ...deck.shift()!, isShared: true };
     newSharedDeals.push(card);
@@ -395,7 +494,6 @@ export function distributeDealsForRound(game: GameState): GameState {
 // 投資実行
 // ──────────────────────────────────────────────
 
-/** 持分（%）計算: investment / valuation * 100 */
 function calcOwnership(amount: number, valuation: number): number {
   return valuation > 0 ? (amount / valuation) * 100 : 0;
 }
@@ -430,7 +528,6 @@ export function executeLeadInvestment(
     remainingCapital: player.remainingCapital - amount,
     totalInvested: player.totalInvested + amount,
     portfolio: [...player.portfolio, newInvestment],
-    // 手札から該当カードを除去
     handDeals: player.handDeals.filter(d => d.startupId !== startupId),
   };
 
@@ -438,7 +535,6 @@ export function executeLeadInvestment(
     i === playerIdx ? updatedPlayer : p,
   );
 
-  // スタートアップのleadInvestorとinvestorsを更新
   const updatedStartups = game.allStartups.map(s => {
     if (s.id !== startupId) return s;
     return {
@@ -473,28 +569,25 @@ export function executeFollowInvestment(
 
   const ownership = calcOwnership(amount, startup.currentValuation);
 
-  // 既存の投資があればフォローオン（ラウンド追加）
   const existingIdx = player.portfolio.findIndex(inv => inv.startupId === startupId);
 
   let newPortfolio: Investment[];
   if (existingIdx !== -1) {
     const existing = player.portfolio[existingIdx];
-    const newRound = { round: game.currentRound, amount, stage: startup.currentStage, valuationAtInvestment: startup.currentValuation };
     const updatedInv: Investment = {
       ...existing,
-      rounds: [...existing.rounds, newRound],
+      rounds: [...existing.rounds, { round: game.currentRound, amount, stage: startup.currentStage, valuationAtInvestment: startup.currentValuation }],
       ownershipPercent: existing.ownershipPercent + ownership,
     };
     newPortfolio = player.portfolio.map((inv, i) => (i === existingIdx ? updatedInv : inv));
   } else {
-    const newInvestment: Investment = {
+    newPortfolio = [...player.portfolio, {
       startupId,
       investmentType: 'follow',
       rounds: [{ round: game.currentRound, amount, stage: startup.currentStage, valuationAtInvestment: startup.currentValuation }],
       ownershipPercent: ownership,
       hasProRataRight: false,
-    };
-    newPortfolio = [...player.portfolio, newInvestment];
+    }];
   }
 
   const updatedPlayer: Player = {
@@ -579,24 +672,13 @@ export function takeRoundSnapshot(game: GameState): RoundSnapshot {
 
 export function doFinalSettlement(game: GameState): GameState {
   const updatedPlayers = game.players.map(player => {
-    let liquidationTotal = 0;
-
-    for (const inv of player.portfolio) {
+    const liquidationTotal = player.portfolio.reduce((sum, inv) => {
       const startup = game.allStartups.find(s => s.id === inv.startupId);
-      if (!startup) continue;
-      // Exit・死亡済みは除外（既に realizedReturns に含まれている）
-      if (EXITED_OR_DEAD.has(startup.status)) continue;
+      if (!startup || EXITED_OR_DEAD.has(startup.status)) return sum;
+      return sum + startup.currentValuation * (inv.ownershipPercent / 100) * LIQUIDATION_DISCOUNT;
+    }, 0);
 
-      // 生存企業を 50% ディスカウントで清算
-      const liquidationValue =
-        startup.currentValuation * (inv.ownershipPercent / 100) * LIQUIDATION_DISCOUNT;
-      liquidationTotal += liquidationValue;
-    }
-
-    return {
-      ...player,
-      liquidationReturns: player.liquidationReturns + liquidationTotal,
-    };
+    return { ...player, liquidationReturns: player.liquidationReturns + liquidationTotal };
   });
 
   return { ...game, players: updatedPlayers };
@@ -606,10 +688,10 @@ export function doFinalSettlement(game: GameState): GameState {
 // ラウンド進行
 // ──────────────────────────────────────────────
 
-/** イベントカードを1枚ドローし、ゲームに適用する */
+/** イベントカードを1枚ドローし、ゲームに適用する（フェーズは 'growth' に遷移） */
 export function drawEvent(game: GameState): GameState {
   if (game.eventDeck.length === 0) {
-    return { ...game, currentEvent: null };
+    return { ...game, currentEvent: null, currentPhase: 'growth' };
   }
   const [card, ...rest] = game.eventDeck;
   return {
@@ -617,29 +699,46 @@ export function drawEvent(game: GameState): GameState {
     currentEvent: card,
     eventDeck: rest,
     eventHistory: [...game.eventHistory, card],
+    currentPhase: 'growth',
   };
 }
 
-/** ラウンドをインクリメント（サマリー後に呼ぶ） */
+/**
+ * ラウンドをインクリメント（SummaryPhase から呼ぶ）。
+ * Fix 1.2: 常に 'management_fee' へ。final_settlement への遷移は SummaryPhase が担当。
+ * Fix 3.1: handDeals をクリア。
+ * Fix 5.3: currentAuction をリセット。
+ */
 export function advanceRound(game: GameState): GameState {
   const snapshot = takeRoundSnapshot(game);
   const nextRound = game.currentRound + 1;
 
-  const isLastRound = game.currentRound >= game.settings.totalRounds;
-
-  // 全スタートアップの stageAdvancedThisRound をリセット
+  const clearedPlayers = game.players.map(p => ({ ...p, handDeals: [] as DealCard[] }));
   const resetStartups = game.allStartups.map(s => ({ ...s, stageAdvancedThisRound: false }));
 
   return {
     ...game,
+    players: clearedPlayers,
     currentRound: nextRound,
-    currentPhase: isLastRound ? 'final_settlement' : 'management_fee',
+    currentPhase: 'management_fee',  // 常に次ラウンドの最初へ（last round判定はSummaryPhaseが行う）
     currentPlayerIndex: 0,
     actionsRemaining: game.settings.actionsPerTurn,
     currentEvent: null,
     currentGrowthResults: [],
     sharedDeals: [],
+    currentAuction: null,            // Fix 5.3
     roundHistory: [...game.roundHistory, snapshot],
     allStartups: resetStartups,
   };
+}
+
+/**
+ * 成長判定後の次フェーズを決定する。
+ * - 投資期間内: player_transition → deal_individual
+ * - 投資期間外: summary
+ */
+export function getPhaseAfterGrowth(game: GameState): GameState['currentPhase'] {
+  return game.currentRound <= game.settings.investmentPeriod
+    ? 'player_transition'
+    : 'summary';
 }

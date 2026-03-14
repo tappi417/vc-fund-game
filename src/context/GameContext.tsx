@@ -23,6 +23,7 @@ import {
   executeFollowInvestment,
   advanceRound,
   doFinalSettlement,
+  getPhaseAfterGrowth,
 } from '../logic/gameEngine';
 
 // --- セーブフォーマットバージョン ---
@@ -122,14 +123,38 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'RESOLVE_GROWTH': {
+      // 成長判定を計算してstateに保存するが、フェーズは 'growth' のまま維持。
+      // プレイヤーが結果を確認してから CONFIRM_GROWTH でフェーズ進行する。
       const results = resolveAllGrowth(state);
       const next = applyGrowthResultsToState(state, results);
-      // 投資期間内（investmentPeriod以下）のラウンドはディール配布あり
-      if (state.currentRound <= state.settings.investmentPeriod) {
-        const withDeals = distributeDealsForRound(next);
-        return { ...withDeals, currentPhase: 'player_transition' };
+      return { ...next, currentPhase: 'growth' };
+    }
+
+    case 'CONFIRM_GROWTH': {
+      // 成長結果を確認済み → 次フェーズへ進む
+      const nextPhase = getPhaseAfterGrowth(state);
+      if (nextPhase === 'player_transition') {
+        // 投資期間内: ディール配布してプレイヤー1人目のターンへ
+        const withDeals = distributeDealsForRound(state);
+        return {
+          ...withDeals,
+          currentPhase: 'player_transition',
+          currentPlayerIndex: 0,
+          actionsRemaining: state.settings.actionsPerTurn,
+        };
       }
-      return { ...next, currentPhase: 'summary' };
+      // 投資期間外: サマリーへ直行
+      return {
+        ...state,
+        currentPhase: 'summary',
+        currentPlayerIndex: 0,
+        actionsRemaining: state.settings.actionsPerTurn,
+      };
+    }
+
+    case 'CONFIRM_PLAYER_READY': {
+      // PlayerTransition 画面でプレイヤーが準備完了 → 個別ディールフェーズへ
+      return { ...state, currentPhase: 'deal_individual' };
     }
 
     case 'ADVANCE_PHASE': {
@@ -149,12 +174,9 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'ADVANCE_ROUND': {
-      const next = advanceRound(state);
-      if (next.currentPhase === 'final_settlement') {
-        // 最終ラウンド終了 → 即清算
-        return doFinalSettlement(next);
-      }
-      return next;
+      // advanceRound は常に management_fee に戻る。
+      // 最終ラウンドの清算は SummaryPhase が FINAL_SETTLEMENT を直接 dispatch する。
+      return advanceRound(state);
     }
 
     case 'NEXT_PLAYER': {
@@ -182,29 +204,42 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     case 'INVEST_LEAD': {
       const valuation = state.allStartups.find(s => s.id === action.startupId)?.currentValuation ?? 0;
       const amount = Math.round(action.amount > 0 ? action.amount : valuation * LEAD_INVESTMENT_RATE);
-      const currentPlayer = state.players[state.currentPlayerIndex];
-      return executeLeadInvestment(state, currentPlayer.id, action.startupId, amount);
+      return executeLeadInvestment(state, action.playerId, action.startupId, amount);
     }
 
     case 'INVEST_FOLLOW': {
       const valuation = state.allStartups.find(s => s.id === action.startupId)?.currentValuation ?? 0;
       const amount = Math.round(action.amount > 0 ? action.amount : valuation * FOLLOW_INVESTMENT_RATE);
-      const currentPlayer = state.players[state.currentPlayerIndex];
-      return executeFollowInvestment(state, currentPlayer.id, action.startupId, amount);
+      return executeFollowInvestment(state, action.playerId, action.startupId, amount);
     }
 
     case 'FOLLOW_ON': {
-      const currentPlayer = state.players[state.currentPlayerIndex];
-      return executeFollowInvestment(state, currentPlayer.id, action.startupId, action.amount);
+      return executeFollowInvestment(state, action.playerId, action.startupId, action.amount);
     }
 
-    case 'WRITE_OFF': {
-      // 不良企業の自発的損金処理（アクションを消費するが資金回収なし）
+    case 'DECLINE_DEAL': {
+      // 手札カードをパス（アクション消費、handDeals から除去）
       const updatedPlayers = state.players.map((p, i) => {
         if (i !== state.currentPlayerIndex) return p;
         return {
           ...p,
           handDeals: p.handDeals.filter(d => d.startupId !== action.startupId),
+        };
+      });
+      return {
+        ...state,
+        players: updatedPlayers,
+        actionsRemaining: state.actionsRemaining - 1,
+      };
+    }
+
+    case 'WRITE_OFF': {
+      // ポートフォリオ企業の自発的損金処理（アクション消費、portfolio から除去）
+      const updatedPlayers = state.players.map((p, i) => {
+        if (i !== state.currentPlayerIndex) return p;
+        return {
+          ...p,
+          portfolio: p.portfolio.filter(inv => inv.startupId !== action.startupId),
         };
       });
       return {

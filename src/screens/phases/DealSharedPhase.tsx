@@ -34,7 +34,7 @@ export function DealSharedPhase() {
           </h2>
           <p className="text-slate-300 mb-6">共有ディールはありません。</p>
           <button
-            onClick={() => dispatchGame({ type: 'ADVANCE_ROUND' })}
+            onClick={() => dispatchGame({ type: 'ADVANCE_PHASE' })}
             className="w-full px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl transition-colors"
           >
             サマリーへ →
@@ -64,14 +64,14 @@ export function DealSharedPhase() {
       // 全プレイヤーの意思決定完了 → 投資実行
       const winner = game.players.find(p => newDecisions[p.id]);
       if (winner) {
-        dispatchGame({ type: 'INVEST_LEAD', startupId: currentDeal.startupId, amount: leadAmount });
+        dispatchGame({ type: 'INVEST_LEAD', playerId: winner.id, startupId: currentDeal.startupId, amount: leadAmount });
       }
 
       // 次の共有ディールへ
       const nextDealIdx = currentDealIdx + 1;
       if (nextDealIdx >= sharedDeals.length) {
         // 全共有ディール終了
-        dispatchGame({ type: 'ADVANCE_ROUND' });
+        dispatchGame({ type: 'ADVANCE_PHASE' });
       } else {
         setCurrentDealIdx(nextDealIdx);
         setDecisionPlayerIdx(0);
@@ -175,7 +175,7 @@ export function DealSharedPhase() {
 
         {isLastDeal && decidedCount === 0 && (
           <button
-            onClick={() => dispatchGame({ type: 'ADVANCE_ROUND' })}
+            onClick={() => dispatchGame({ type: 'ADVANCE_PHASE' })}
             className="w-full mt-4 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl text-sm transition-colors"
           >
             スキップしてサマリーへ

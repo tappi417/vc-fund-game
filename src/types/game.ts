@@ -222,18 +222,21 @@ export type GameAction =
   | { type: 'DEDUCT_MANAGEMENT_FEE' }
   | { type: 'DRAW_EVENT' }
   | { type: 'DEAL_CARDS' }
-  | { type: 'RESOLVE_GROWTH' }
-  | { type: 'ADVANCE_PHASE' }
+  | { type: 'RESOLVE_GROWTH' }           // 成長判定を実行（フェーズは growth のまま）
+  | { type: 'CONFIRM_GROWTH' }           // 成長結果を確認してフェーズ進行
+  | { type: 'CONFIRM_PLAYER_READY' }     // PlayerTransition 画面でプレイヤー準備完了
+  | { type: 'ADVANCE_PHASE' }            // 汎用フェーズ進行（レガシー用）
   | { type: 'ADVANCE_ROUND' }
   | { type: 'NEXT_PLAYER' }
-  // 投資アクション
-  | { type: 'INVEST_LEAD'; startupId: string; amount: number }
-  | { type: 'INVEST_FOLLOW'; startupId: string; amount: number }
-  | { type: 'FOLLOW_ON'; startupId: string; amount: number }
-  | { type: 'WRITE_OFF'; startupId: string }
+  // 投資アクション（playerId を明示 — currentPlayerIndex に依存しない）
+  | { type: 'INVEST_LEAD'; playerId: string; startupId: string; amount: number }
+  | { type: 'INVEST_FOLLOW'; playerId: string; startupId: string; amount: number }
+  | { type: 'FOLLOW_ON'; playerId: string; startupId: string; amount: number }
+  | { type: 'DECLINE_DEAL'; startupId: string }   // 手札カードをパス（アクション消費）
+  | { type: 'WRITE_OFF'; startupId: string }       // ポートフォリオの損金処理
   | { type: 'PASS_ACTION' }
   | { type: 'END_TURN' }
-  // 競り
+  // 共有ディール競り
   | { type: 'START_AUCTION'; dealCard: DealCard }
   | { type: 'SUBMIT_BID'; playerId: string; amount: number }
   | { type: 'RESOLVE_AUCTION' }

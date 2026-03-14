@@ -156,13 +156,7 @@ export function GrowthPhase() {
           成長判定結果 — Year {game.currentRound}
         </h2>
         <button
-          onClick={() => {
-            if (game.currentRound <= game.settings.investmentPeriod) {
-              dispatchGame({ type: 'NEXT_PLAYER' });
-            } else {
-              dispatchGame({ type: 'ADVANCE_ROUND' });
-            }
-          }}
+          onClick={() => dispatchGame({ type: 'CONFIRM_GROWTH' })}
           className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl transition-colors text-sm"
         >
           {nextPhaseLabel} →

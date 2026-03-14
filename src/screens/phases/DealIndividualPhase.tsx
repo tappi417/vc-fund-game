@@ -152,11 +152,11 @@ export function DealIndividualPhase() {
   const isOutOfActions = actionsLeft <= 0;
 
   function handleLead(startupId: string) {
-    dispatchGame({ type: 'INVEST_LEAD', startupId, amount: 0 }); // amount=0 → reducer内で計算
+    dispatchGame({ type: 'INVEST_LEAD', playerId: currentPlayer.id, startupId, amount: 0 });
   }
 
   function handleFollow(startupId: string) {
-    dispatchGame({ type: 'INVEST_FOLLOW', startupId, amount: 0 });
+    dispatchGame({ type: 'INVEST_FOLLOW', playerId: currentPlayer.id, startupId, amount: 0 });
   }
 
   function handlePass() {
