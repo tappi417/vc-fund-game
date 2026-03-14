@@ -6,6 +6,15 @@ import {
   STATUS_LABELS,
 } from '../data/constants';
 import type { Player, Startup, Investment } from '../types/game';
+import { calcUnrealizedValue } from '../logic/gameEngine';
+
+import { ManagementFeePhase } from './phases/ManagementFeePhase';
+import { MarketEventPhase } from './phases/MarketEventPhase';
+import { GrowthPhase } from './phases/GrowthPhase';
+import { PlayerTransitionPhase } from './phases/PlayerTransitionPhase';
+import { DealIndividualPhase } from './phases/DealIndividualPhase';
+import { DealSharedPhase } from './phases/DealSharedPhase';
+import { SummaryPhase } from './phases/SummaryPhase';
 
 const PHASE_LABELS: Record<string, string> = {
   management_fee: '管理報酬フェーズ',
@@ -63,6 +72,34 @@ export function GameScreen() {
 
   const currentPlayer = game.players[game.currentPlayerIndex];
 
+  // フェーズコンポーネントのルーティング
+  const PhaseComponent = (() => {
+    switch (game.currentPhase) {
+      case 'management_fee':   return <ManagementFeePhase />;
+      case 'market_event':     return <MarketEventPhase />;
+      case 'growth':           return <GrowthPhase />;
+      case 'player_transition':return <PlayerTransitionPhase />;
+      case 'deal_individual':  return <DealIndividualPhase />;
+      case 'deal_shared':      return <DealSharedPhase />;
+      case 'summary':          return <SummaryPhase />;
+      case 'final_settlement':
+      case 'game_over':
+        return (
+          <div className="flex items-center justify-center min-h-[60vh]">
+            <div className="text-center">
+              <p className="text-white text-xl mb-4">ゲーム終了処理中...</p>
+            </div>
+          </div>
+        );
+      default:
+        return (
+          <div className="text-slate-400 text-center py-12">
+            未実装フェーズ: {game.currentPhase}
+          </div>
+        );
+    }
+  })();
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* ヘッダー */}
@@ -77,206 +114,104 @@ export function GameScreen() {
               {PHASE_LABELS[game.currentPhase] ?? game.currentPhase}
             </span>
           </div>
-          <div className="text-right">
-            <span className="text-amber-400 font-semibold">
+          <div className="flex items-center gap-4">
+            <span className="text-amber-400 font-semibold text-sm">
               {currentPlayer.fundName}
+            </span>
+            <span className="text-emerald-400 text-sm font-semibold">
+              {formatCurrency(currentPlayer.remainingCapital)}
             </span>
           </div>
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* 左カラム: イベント + サマリー */}
-        <div className="lg:col-span-1 space-y-6">
-          {/* 市場イベント */}
-          <section className="bg-slate-800/60 rounded-xl p-5 border border-slate-700">
-            <h3 className="text-slate-400 text-xs font-medium uppercase tracking-wider mb-3">
-              市場イベント
-            </h3>
-            {game.currentEvent ? (
-              <div>
-                <p className="text-white font-semibold mb-1">{game.currentEvent.title}</p>
-                <p className="text-slate-400 text-sm">{game.currentEvent.description}</p>
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {game.currentEvent.effects.map((eff, i) => (
-                    <span
-                      key={i}
-                      className={`text-xs px-2 py-0.5 rounded-full ${
-                        (eff.growthModifier ?? 0) > 0 || (eff.exitModifier ?? 0) > 0
-                          ? 'bg-emerald-900/50 text-emerald-400'
-                          : (eff.growthModifier ?? 0) < 0
-                          ? 'bg-red-900/50 text-red-400'
-                          : 'bg-slate-700 text-slate-400'
-                      }`}
-                    >
-                      {eff.target === 'all' ? '全セクター' : SECTOR_LABELS[eff.target]}
-                      {eff.growthModifier !== 0 && (
-                        <> 成長{eff.growthModifier > 0 ? `+${eff.growthModifier}` : eff.growthModifier}</>
-                      )}
-                      {eff.exitModifier != null && eff.exitModifier !== 0 && (
-                        <> Exit{eff.exitModifier > 0 ? `+${eff.exitModifier}` : eff.exitModifier}</>
-                      )}
+      <div className="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* 左サイドバー: ファンドサマリー（player_transition以外で常時表示）*/}
+        {game.currentPhase !== 'player_transition' && (
+          <aside className="lg:col-span-1 space-y-4">
+            {/* 市場イベント */}
+            <section className="bg-slate-800/60 rounded-xl p-4 border border-slate-700">
+              <h3 className="text-slate-400 text-xs font-medium uppercase tracking-wider mb-2">
+                市場イベント
+              </h3>
+              {game.currentEvent ? (
+                <div>
+                  <p className="text-white font-semibold text-sm mb-1">{game.currentEvent.title}</p>
+                  <p className="text-slate-400 text-xs">{game.currentEvent.description}</p>
+                </div>
+              ) : (
+                <p className="text-slate-500 text-xs">イベントなし</p>
+              )}
+            </section>
+
+            {/* ファンドサマリー */}
+            <section className="bg-slate-800/60 rounded-xl p-4 border border-slate-700">
+              <h3 className="text-slate-400 text-xs font-medium uppercase tracking-wider mb-3">
+                {currentPlayer.fundName}
+              </h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">残り資金</span>
+                  <span className="text-emerald-400 font-semibold">{formatCurrency(currentPlayer.remainingCapital)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">投資済み</span>
+                  <span className="text-white">{formatCurrency(currentPlayer.totalInvested)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">未実現価値</span>
+                  <span className="text-slate-300">{formatCurrency(calcUnrealizedValue(currentPlayer, game.allStartups))}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">投資先</span>
+                  <span className="text-white">
+                    {currentPlayer.portfolio.length}社
+                    <span className="text-slate-500 text-xs ml-1">
+                      （生存{aliveCount(currentPlayer, game.allStartups)}）
                     </span>
-                  ))}
+                  </span>
+                </div>
+                <div className="flex justify-between border-t border-slate-700 pt-2 mt-2">
+                  <span className="text-slate-400">暫定DPI</span>
+                  <span className={`font-bold ${calcDPI(currentPlayer) >= 1 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                    {calcDPI(currentPlayer).toFixed(2)}x
+                  </span>
                 </div>
               </div>
-            ) : (
-              <p className="text-slate-500 text-sm">イベントなし</p>
+            </section>
+
+            {/* ポートフォリオ一覧（折りたたみ式） */}
+            {currentPlayer.portfolio.length > 0 && (
+              <section className="bg-slate-800/60 rounded-xl p-4 border border-slate-700">
+                <h3 className="text-slate-400 text-xs font-medium uppercase tracking-wider mb-3">
+                  ポートフォリオ
+                </h3>
+                <div className="space-y-2">
+                  {currentPlayer.portfolio.map(inv => {
+                    const startup = game.allStartups.find(s => s.id === inv.startupId);
+                    if (!startup) return null;
+                    return (
+                      <PortfolioMiniRow key={inv.startupId} investment={inv} startup={startup} />
+                    );
+                  })}
+                </div>
+              </section>
             )}
-          </section>
+          </aside>
+        )}
 
-          {/* ファンドサマリー */}
-          <section className="bg-slate-800/60 rounded-xl p-5 border border-slate-700">
-            <h3 className="text-slate-400 text-xs font-medium uppercase tracking-wider mb-3">
-              ファンドサマリー — {currentPlayer.fundName}
-            </h3>
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-slate-400 text-sm">残り投資可能資金</span>
-                <span className="text-emerald-400 font-semibold">{formatCurrency(currentPlayer.remainingCapital)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400 text-sm">投資済み総額</span>
-                <span className="text-white font-semibold">{formatCurrency(currentPlayer.totalInvested)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400 text-sm">投資先数</span>
-                <span className="text-white font-semibold">
-                  {currentPlayer.portfolio.length}社
-                  （生存{aliveCount(currentPlayer, game.allStartups)} / 消滅{currentPlayer.portfolio.length - aliveCount(currentPlayer, game.allStartups)}）
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400 text-sm">暫定DPI</span>
-                <span className={`font-bold ${calcDPI(currentPlayer) >= 1 ? 'text-emerald-400' : 'text-amber-400'}`}>
-                  {calcDPI(currentPlayer).toFixed(2)}x
-                </span>
-              </div>
-            </div>
-          </section>
-
-          {/* アクション残り（ディールフェーズ時のみ） */}
-          {game.currentPhase === 'deal_individual' && (
-            <section className="bg-slate-800/60 rounded-xl p-5 border border-slate-700">
-              <h3 className="text-slate-400 text-xs font-medium uppercase tracking-wider mb-3">
-                残りアクション
-              </h3>
-              <div className="flex gap-2">
-                {Array.from({ length: game.settings.actionsPerTurn }, (_, i) => (
-                  <div
-                    key={i}
-                    className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                      i < game.actionsRemaining
-                        ? 'bg-indigo-600 text-white'
-                        : 'bg-slate-700 text-slate-500'
-                    }`}
-                  >
-                    {i + 1}
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-        </div>
-
-        {/* 中央＋右カラム: ポートフォリオ + 手札 */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* ポートフォリオ */}
-          <section className="bg-slate-800/60 rounded-xl p-5 border border-slate-700">
-            <h3 className="text-slate-400 text-xs font-medium uppercase tracking-wider mb-3">
-              ポートフォリオ
-            </h3>
-            {currentPlayer.portfolio.length === 0 ? (
-              <p className="text-slate-500 text-sm py-4 text-center">
-                まだ投資先がありません。ディールフェーズで投資しましょう。
-              </p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-slate-400 text-xs border-b border-slate-700">
-                      <th className="text-left py-2 pr-4">企業名</th>
-                      <th className="text-left py-2 pr-4">セクター</th>
-                      <th className="text-left py-2 pr-4">ステージ</th>
-                      <th className="text-left py-2 pr-4">ステータス</th>
-                      <th className="text-right py-2 pr-4">持分</th>
-                      <th className="text-right py-2">評価額</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {currentPlayer.portfolio.map(inv => {
-                      const startup = game.allStartups.find(s => s.id === inv.startupId);
-                      if (!startup) return null;
-                      return (
-                        <PortfolioRow key={inv.startupId} investment={inv} startup={startup} />
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
-
-          {/* 手札（個別ディール）*/}
-          {game.currentPhase === 'deal_individual' && currentPlayer.handDeals.length > 0 && (
-            <section className="bg-slate-800/60 rounded-xl p-5 border border-slate-700">
-              <h3 className="text-slate-400 text-xs font-medium uppercase tracking-wider mb-3">
-                手札（個別ディール）
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {currentPlayer.handDeals.map(deal => {
-                  const startup = game.allStartups.find(s => s.id === deal.startupId);
-                  if (!startup) return null;
-                  return <DealCardView key={deal.startupId} startup={startup} />;
-                })}
-              </div>
-            </section>
-          )}
-
-          {/* プレイヤー一覧（サマリーフェーズ時） */}
-          {game.currentPhase === 'summary' && (
-            <section className="bg-slate-800/60 rounded-xl p-5 border border-slate-700">
-              <h3 className="text-slate-400 text-xs font-medium uppercase tracking-wider mb-3">
-                全ファンド状況
-              </h3>
-              <div className="space-y-3">
-                {game.players.map((p, i) => (
-                  <div
-                    key={p.id}
-                    className={`flex items-center justify-between p-3 rounded-lg ${
-                      i === game.currentPlayerIndex
-                        ? 'bg-indigo-900/30 border border-indigo-700'
-                        : 'bg-slate-700/30'
-                    }`}
-                  >
-                    <div>
-                      <span className="text-white font-semibold">{p.fundName}</span>
-                      <span className="text-slate-400 text-sm ml-3">
-                        投資{p.portfolio.length}社
-                      </span>
-                    </div>
-                    <div className="text-right">
-                      <span className={`font-bold ${calcDPI(p) >= 1 ? 'text-emerald-400' : 'text-amber-400'}`}>
-                        DPI {calcDPI(p).toFixed(2)}x
-                      </span>
-                      <span className="text-slate-400 text-sm ml-3">
-                        残{formatCurrency(p.remainingCapital)}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-        </div>
+        {/* メインコンテンツ */}
+        <main className={game.currentPhase !== 'player_transition' ? 'lg:col-span-3' : 'lg:col-span-4'}>
+          {PhaseComponent}
+        </main>
       </div>
     </div>
   );
 }
 
-// --- サブコンポーネント ---
+// ── サブコンポーネント ──
 
-function PortfolioRow({ investment, startup }: { investment: Investment; startup: Startup }) {
+function PortfolioMiniRow({ investment, startup }: { investment: Investment; startup: Startup }) {
   const statusColor: Record<string, string> = {
     growing: 'text-emerald-400',
     stable: 'text-slate-300',
@@ -298,77 +233,16 @@ function PortfolioRow({ investment, startup }: { investment: Investment; startup
   };
 
   return (
-    <tr className="border-b border-slate-700/50 hover:bg-slate-700/20">
-      <td className="py-2.5 pr-4 text-white font-medium">{startup.name}</td>
-      <td className="py-2.5 pr-4 text-slate-300">{SECTOR_LABELS[startup.sector]}</td>
-      <td className="py-2.5 pr-4 text-slate-300">{STAGE_LABELS[startup.currentStage]}</td>
-      <td className={`py-2.5 pr-4 ${statusColor[startup.status] ?? 'text-slate-300'}`}>
-        {statusIcon[startup.status] ?? ''} {STATUS_LABELS[startup.status]}
-      </td>
-      <td className="py-2.5 pr-4 text-right text-slate-300">{investment.ownershipPercent.toFixed(1)}%</td>
-      <td className="py-2.5 text-right text-white">{formatCurrency(startup.currentValuation)}</td>
-    </tr>
-  );
-}
-
-function DealCardView({ startup }: { startup: Startup }) {
-  const hintStars = (grade: 'A' | 'B' | 'C'): string => {
-    switch (grade) {
-      case 'A': return '★★★★☆';
-      case 'B': return '★★★☆☆';
-      case 'C': return '★★☆☆☆';
-    }
-  };
-
-  return (
-    <div className="bg-slate-700/60 rounded-xl p-4 border border-slate-600 hover:border-indigo-500/50 transition-colors">
-      <div className="flex items-start justify-between mb-3">
-        <div>
-          <h4 className="text-white font-bold">{startup.name}</h4>
-          <span className="text-xs text-slate-400">
-            {SECTOR_LABELS[startup.sector]} · {STAGE_LABELS[startup.currentStage]}
-          </span>
-        </div>
-        <span className="text-indigo-400 font-bold text-sm">
-          {formatCurrency(startup.currentValuation)}
+    <div className="flex items-center justify-between text-xs">
+      <div className="min-w-0">
+        <span className="text-white font-medium truncate block">{startup.name}</span>
+        <span className="text-slate-500">{SECTOR_LABELS[startup.sector]}</span>
+      </div>
+      <div className="text-right ml-2 shrink-0">
+        <span className={`${statusColor[startup.status] ?? 'text-slate-300'}`}>
+          {statusIcon[startup.status] ?? ''} {STATUS_LABELS[startup.status]}
         </span>
-      </div>
-
-      <div className="space-y-1 text-sm mb-4">
-        <div className="flex justify-between text-slate-300">
-          <span>チーム力</span>
-          <span>{hintStars(startup.hints.teamQuality)} ({startup.hints.teamQuality})</span>
-        </div>
-        <div className="flex justify-between text-slate-300">
-          <span>市場規模</span>
-          <span>{hintStars(startup.hints.marketSize)} ({startup.hints.marketSize})</span>
-        </div>
-        <div className="flex justify-between text-slate-300">
-          <span>プロダクト</span>
-          <span>{hintStars(startup.hints.productReadiness)} ({startup.hints.productReadiness})</span>
-        </div>
-      </div>
-
-      {/* Phase 2で投資ボタンを実装予定 */}
-      <div className="flex gap-2">
-        <button
-          disabled
-          className="flex-1 px-3 py-2 bg-indigo-600/50 text-indigo-300 text-sm rounded-lg cursor-not-allowed"
-        >
-          リード投資
-        </button>
-        <button
-          disabled
-          className="flex-1 px-3 py-2 bg-slate-600/50 text-slate-400 text-sm rounded-lg cursor-not-allowed"
-        >
-          フォロー投資
-        </button>
-        <button
-          disabled
-          className="px-3 py-2 bg-slate-600/50 text-slate-400 text-sm rounded-lg cursor-not-allowed"
-        >
-          パス
-        </button>
+        <div className="text-slate-400">{investment.ownershipPercent.toFixed(1)}%</div>
       </div>
     </div>
   );

@@ -12,8 +12,18 @@ import type {
   Player,
   Screen,
 } from '../types/game';
-import { DEFAULT_SETTINGS, calcInvestableCapital } from '../data/constants';
+import { DEFAULT_SETTINGS, calcInvestableCapital, LEAD_INVESTMENT_RATE, FOLLOW_INVESTMENT_RATE } from '../data/constants';
 import { buildDealDeck, buildEventDeck } from '../data/deckBuilder';
+import {
+  drawEvent,
+  resolveAllGrowth,
+  applyGrowthResultsToState,
+  distributeDealsForRound,
+  executeLeadInvestment,
+  executeFollowInvestment,
+  advanceRound,
+  doFinalSettlement,
+} from '../logic/gameEngine';
 
 // --- セーブフォーマットバージョン ---
 // GameState の型定義を変更したときにインクリメントする。
@@ -97,11 +107,33 @@ function initializeGame(
 
 function gameReducer(state: GameState, action: GameAction): GameState {
   switch (action.type) {
-    // --- Phase 2 で実装するアクション ---
-    // ここにゲームロジックを追加していく
-    // 各アクションは GameState を受け取り、新しい GameState を返す純粋関数
+
+    // ──── ラウンド進行 ────
+
+    case 'DEDUCT_MANAGEMENT_FEE': {
+      // 管理報酬は初期化時に investable capital として事前控除済み。
+      // このフェーズは表示・確認用のみ。フェーズを market_event へ進める。
+      return { ...state, currentPhase: 'market_event' };
+    }
+
+    case 'DRAW_EVENT': {
+      const next = drawEvent(state);
+      return { ...next, currentPhase: 'growth' };
+    }
+
+    case 'RESOLVE_GROWTH': {
+      const results = resolveAllGrowth(state);
+      const next = applyGrowthResultsToState(state, results);
+      // 投資期間内（investmentPeriod以下）のラウンドはディール配布あり
+      if (state.currentRound <= state.settings.investmentPeriod) {
+        const withDeals = distributeDealsForRound(next);
+        return { ...withDeals, currentPhase: 'player_transition' };
+      }
+      return { ...next, currentPhase: 'summary' };
+    }
 
     case 'ADVANCE_PHASE': {
+      // 汎用フェーズ進行（コンポーネントから直接呼ぶ場合のフォールバック）
       const phaseOrder: GameState['currentPhase'][] = [
         'management_fee',
         'market_event',
@@ -116,12 +148,75 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       return { ...state, currentPhase: nextPhase };
     }
 
+    case 'ADVANCE_ROUND': {
+      const next = advanceRound(state);
+      if (next.currentPhase === 'final_settlement') {
+        // 最終ラウンド終了 → 即清算
+        return doFinalSettlement(next);
+      }
+      return next;
+    }
+
     case 'NEXT_PLAYER': {
-      const nextIndex = (state.currentPlayerIndex + 1) % state.players.length;
+      const nextIndex = state.currentPlayerIndex + 1;
+      if (nextIndex >= state.players.length) {
+        // 全プレイヤー完了 → 共有ディールフェーズへ（または summary）
+        const hasShared = state.sharedDeals.length > 0;
+        return {
+          ...state,
+          currentPlayerIndex: 0,
+          actionsRemaining: state.settings.actionsPerTurn,
+          currentPhase: hasShared ? 'deal_shared' : 'summary',
+        };
+      }
       return {
         ...state,
         currentPlayerIndex: nextIndex,
         actionsRemaining: state.settings.actionsPerTurn,
+        currentPhase: 'player_transition',
+      };
+    }
+
+    // ──── 投資アクション ────
+
+    case 'INVEST_LEAD': {
+      const amount = Math.round(
+        action.amount ??
+          (state.allStartups.find(s => s.id === action.startupId)?.currentValuation ?? 0) *
+            LEAD_INVESTMENT_RATE,
+      );
+      const currentPlayer = state.players[state.currentPlayerIndex];
+      return executeLeadInvestment(state, currentPlayer.id, action.startupId, amount);
+    }
+
+    case 'INVEST_FOLLOW': {
+      const amount = Math.round(
+        action.amount ??
+          (state.allStartups.find(s => s.id === action.startupId)?.currentValuation ?? 0) *
+            FOLLOW_INVESTMENT_RATE,
+      );
+      const currentPlayer = state.players[state.currentPlayerIndex];
+      return executeFollowInvestment(state, currentPlayer.id, action.startupId, amount);
+    }
+
+    case 'FOLLOW_ON': {
+      const currentPlayer = state.players[state.currentPlayerIndex];
+      return executeFollowInvestment(state, currentPlayer.id, action.startupId, action.amount);
+    }
+
+    case 'WRITE_OFF': {
+      // 不良企業の自発的損金処理（アクションを消費するが資金回収なし）
+      const updatedPlayers = state.players.map((p, i) => {
+        if (i !== state.currentPlayerIndex) return p;
+        return {
+          ...p,
+          handDeals: p.handDeals.filter(d => d.startupId !== action.startupId),
+        };
+      });
+      return {
+        ...state,
+        players: updatedPlayers,
+        actionsRemaining: state.actionsRemaining - 1,
       };
     }
 
@@ -134,11 +229,68 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       return { ...state, actionsRemaining: 0 };
     }
 
+    // ──── 共有ディール（簡易版: Phase 2 は入札なし、先着順）────
+
+    case 'START_AUCTION': {
+      return {
+        ...state,
+        currentAuction: {
+          dealCard: action.dealCard,
+          bids: [],
+          winnerId: null,
+          isResolved: false,
+        },
+      };
+    }
+
+    case 'SUBMIT_BID': {
+      if (!state.currentAuction) return state;
+      const bids = [
+        ...state.currentAuction.bids.filter(b => b.playerId !== action.playerId),
+        { playerId: action.playerId, amount: action.amount },
+      ];
+      return {
+        ...state,
+        currentAuction: { ...state.currentAuction, bids },
+      };
+    }
+
+    case 'RESOLVE_AUCTION': {
+      if (!state.currentAuction) return state;
+      const { bids, dealCard } = state.currentAuction;
+      if (bids.length === 0) {
+        // 誰も入札しなかった
+        return {
+          ...state,
+          sharedDeals: state.sharedDeals.filter(d => d.startupId !== dealCard.startupId),
+          currentAuction: null,
+        };
+      }
+      // 最高入札者がリード投資実行
+      const winner = bids.reduce((a, b) => (a.amount >= b.amount ? a : b));
+      const startup = state.allStartups.find(s => s.id === dealCard.startupId);
+      if (!startup) return { ...state, currentAuction: null };
+
+      let next = executeLeadInvestment(state, winner.playerId, dealCard.startupId, winner.amount);
+      next = {
+        ...next,
+        sharedDeals: next.sharedDeals.filter(d => d.startupId !== dealCard.startupId),
+        currentAuction: null,
+      };
+      return next;
+    }
+
+    // ──── ゲーム終了 ────
+
+    case 'FINAL_SETTLEMENT': {
+      const settled = doFinalSettlement(state);
+      return { ...settled, currentPhase: 'game_over', isGameOver: true };
+    }
+
     case 'END_GAME': {
       return { ...state, currentPhase: 'game_over', isGameOver: true };
     }
 
-    // 未実装アクションはスタブとして現状維持
     default:
       return state;
   }
