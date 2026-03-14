@@ -4,7 +4,7 @@ import type { GameSettings } from '../types/game';
 
 export const DEFAULT_SETTINGS: GameSettings = {
   totalRounds: 10,
-  fundSize: 10_000_000_000,     // 100億円
+  fundSize: 5_000_000_000,      // 50億円
   managementFeeRate: 0.02,       // 年2%
   investmentPeriod: 5,           // 前半5ラウンド
   actionsPerTurn: 3,

@@ -232,17 +232,39 @@ function PortfolioMiniRow({ investment, startup }: { investment: Investment; sta
     exited_mega_ipo: '★★★',
   };
 
+  const isExited = EXITED_STATUSES.has(startup.status);
+  // 取得価額 = 全ラウンドの投資額合計
+  const costBasis = investment.rounds.reduce((s, r) => s + r.amount, 0);
+  // 現在価額 = バリュエーション × 持分（Exit済みはexitValuationを使用）
+  const currentValue = isExited
+    ? (startup.exitValuation ?? startup.currentValuation) * (investment.ownershipPercent / 100)
+    : startup.status === 'dead'
+    ? 0
+    : startup.currentValuation * (investment.ownershipPercent / 100);
+  const multiple = costBasis > 0 ? currentValue / costBasis : 0;
+
   return (
-    <div className="flex items-center justify-between text-xs">
-      <div className="min-w-0">
-        <span className="text-white font-medium truncate block">{startup.name}</span>
-        <span className="text-slate-500">{SECTOR_LABELS[startup.sector]}</span>
-      </div>
-      <div className="text-right ml-2 shrink-0">
-        <span className={`${statusColor[startup.status] ?? 'text-slate-300'}`}>
+    <div className="text-xs border-b border-slate-700/50 pb-2 mb-2 last:border-0 last:pb-0 last:mb-0">
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-white font-medium truncate">{startup.name}</span>
+        <span className={`${statusColor[startup.status] ?? 'text-slate-300'} shrink-0 ml-2`}>
           {statusIcon[startup.status] ?? ''} {STATUS_LABELS[startup.status]}
         </span>
-        <div className="text-slate-400">{investment.ownershipPercent.toFixed(1)}%</div>
+      </div>
+      <div className="flex justify-between text-slate-400">
+        <span>{SECTOR_LABELS[startup.sector]} · {investment.ownershipPercent.toFixed(1)}%</span>
+        <span className={multiple >= 1 ? 'text-emerald-400' : multiple > 0 ? 'text-amber-400' : 'text-red-400'}>
+          {multiple.toFixed(1)}x
+        </span>
+      </div>
+      <div className="flex justify-between mt-0.5">
+        <span className="text-slate-500">取得 {formatCurrency(costBasis)}</span>
+        <span className={`font-medium ${
+          currentValue > costBasis ? 'text-emerald-400' :
+          currentValue < costBasis ? 'text-red-400' : 'text-slate-300'
+        }`}>
+          現在 {formatCurrency(currentValue)}
+        </span>
       </div>
     </div>
   );
