@@ -180,21 +180,15 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     // ──── 投資アクション ────
 
     case 'INVEST_LEAD': {
-      const amount = Math.round(
-        action.amount ??
-          (state.allStartups.find(s => s.id === action.startupId)?.currentValuation ?? 0) *
-            LEAD_INVESTMENT_RATE,
-      );
+      const valuation = state.allStartups.find(s => s.id === action.startupId)?.currentValuation ?? 0;
+      const amount = Math.round(action.amount > 0 ? action.amount : valuation * LEAD_INVESTMENT_RATE);
       const currentPlayer = state.players[state.currentPlayerIndex];
       return executeLeadInvestment(state, currentPlayer.id, action.startupId, amount);
     }
 
     case 'INVEST_FOLLOW': {
-      const amount = Math.round(
-        action.amount ??
-          (state.allStartups.find(s => s.id === action.startupId)?.currentValuation ?? 0) *
-            FOLLOW_INVESTMENT_RATE,
-      );
+      const valuation = state.allStartups.find(s => s.id === action.startupId)?.currentValuation ?? 0;
+      const amount = Math.round(action.amount > 0 ? action.amount : valuation * FOLLOW_INVESTMENT_RATE);
       const currentPlayer = state.players[state.currentPlayerIndex];
       return executeFollowInvestment(state, currentPlayer.id, action.startupId, amount);
     }
