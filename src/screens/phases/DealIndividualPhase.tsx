@@ -15,6 +15,8 @@ const HINT_COLORS: Record<string, string> = {
   C: 'text-red-400',
 };
 
+// ── 手札ディールカード ────────────────────────────────────────────
+
 function DealCard({ deal, startup, onLead, onFollow, onPass, disabled }: {
   deal: DealCard;
   startup: Startup;
@@ -143,6 +145,151 @@ function DealCard({ deal, startup, onLead, onFollow, onPass, disabled }: {
   );
 }
 
+// ── フォローオン投資カード ───────────────────────────────────────
+
+function FollowOnCard({ startup, onConfirm, onCancel, disabled }: {
+  startup: Startup;
+  onConfirm: () => void;
+  onCancel: () => void;
+  disabled: boolean;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  const amount = Math.round(startup.currentValuation * FOLLOW_INVESTMENT_RATE);
+
+  if (confirming) {
+    return (
+      <div className="bg-emerald-900/30 rounded-xl p-4 border border-emerald-600">
+        <h4 className="text-white font-bold mb-1">{startup.name}</h4>
+        <p className="text-slate-300 text-sm mb-1">
+          フォローオン投資: <span className="text-emerald-300 font-bold">{formatCurrency(amount)}</span>
+          （現在評価額の{(FOLLOW_INVESTMENT_RATE * 100).toFixed(0)}%）
+        </p>
+        <p className="text-slate-400 text-xs mb-4">
+          ステージ進行した既存投資先への追加投資です。持分を増やします。
+        </p>
+        <div className="flex gap-2">
+          <button
+            onClick={onConfirm}
+            className="flex-1 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-semibold transition-colors"
+          >
+            投資実行
+          </button>
+          <button
+            onClick={() => setConfirming(false)}
+            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-sm transition-colors"
+          >
+            戻る
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-slate-700/60 rounded-xl p-4 border border-emerald-700/50 hover:border-emerald-500/70 transition-colors">
+      <div className="flex items-start justify-between mb-2">
+        <div>
+          <div className="flex items-center gap-2 mb-0.5">
+            <span className="text-xs bg-emerald-900/60 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-700/50">
+              ↑ ステージ進行
+            </span>
+          </div>
+          <h4 className="text-white font-bold">{startup.name}</h4>
+          <span className="text-xs text-slate-400">
+            {SECTOR_LABELS[startup.sector]} · {STAGE_LABELS[startup.currentStage]}
+          </span>
+        </div>
+        <span className="text-emerald-400 font-bold text-sm">{formatCurrency(startup.currentValuation)}</span>
+      </div>
+      <div className="flex items-center justify-between mt-3">
+        <span className="text-slate-400 text-xs">
+          フォローオン額: <span className="text-slate-200">{formatCurrency(amount)}</span>
+        </span>
+        <button
+          onClick={() => setConfirming(true)}
+          disabled={disabled}
+          className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-lg transition-colors"
+        >
+          フォローオン投資
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── 損切りカード ─────────────────────────────────────────────────
+
+function WriteOffCard({ startup, totalInvested, onConfirm, onCancel, disabled }: {
+  startup: Startup;
+  totalInvested: number;
+  onConfirm: () => void;
+  onCancel: () => void;
+  disabled: boolean;
+}) {
+  const [confirming, setConfirming] = useState(false);
+
+  if (confirming) {
+    return (
+      <div className="bg-red-900/30 rounded-xl p-4 border border-red-600">
+        <h4 className="text-white font-bold mb-1">{startup.name}</h4>
+        <p className="text-slate-300 text-sm mb-1">
+          投資額 <span className="text-red-300 font-bold">{formatCurrency(totalInvested)}</span> は回収できません。
+        </p>
+        <p className="text-slate-400 text-xs mb-4">
+          本当に損切りしますか？この操作は取り消せません。
+        </p>
+        <div className="flex gap-2">
+          <button
+            onClick={onConfirm}
+            className="flex-1 px-4 py-2 bg-red-700 hover:bg-red-600 text-white rounded-lg text-sm font-semibold transition-colors"
+          >
+            損切り実行
+          </button>
+          <button
+            onClick={() => setConfirming(false)}
+            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-sm transition-colors"
+          >
+            戻る
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-slate-700/60 rounded-xl p-4 border border-red-800/50 hover:border-red-600/70 transition-colors">
+      <div className="flex items-start justify-between mb-2">
+        <div>
+          <div className="flex items-center gap-2 mb-0.5">
+            <span className="text-xs bg-red-900/60 text-red-300 px-2 py-0.5 rounded-full border border-red-700/50">
+              苦戦中
+            </span>
+          </div>
+          <h4 className="text-white font-bold">{startup.name}</h4>
+          <span className="text-xs text-slate-400">
+            {SECTOR_LABELS[startup.sector]} · {STAGE_LABELS[startup.currentStage]}
+          </span>
+        </div>
+        <span className="text-red-400 font-bold text-sm">{formatCurrency(startup.currentValuation)}</span>
+      </div>
+      <div className="flex items-center justify-between mt-3">
+        <span className="text-slate-400 text-xs">
+          投資額: <span className="text-slate-200">{formatCurrency(totalInvested)}</span>
+        </span>
+        <button
+          onClick={() => setConfirming(true)}
+          disabled={disabled}
+          className="px-3 py-1.5 bg-red-800 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-lg transition-colors"
+        >
+          損切り実行
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── メインコンポーネント ─────────────────────────────────────────
+
 export function DealIndividualPhase() {
   const { state, dispatchGame } = useGame();
   const game = state.game!;
@@ -150,6 +297,21 @@ export function DealIndividualPhase() {
 
   const actionsLeft = game.actionsRemaining;
   const isOutOfActions = actionsLeft <= 0;
+
+  // ── ポートフォリオ関連の導出 ──────────────────────────────────
+  // フォローオン対象: ステージ進行済みかつ保有中
+  const followOnOpportunities = currentPlayer.portfolio
+    .map(inv => game.allStartups.find(s => s.id === inv.startupId))
+    .filter((s): s is Startup => !!s && s.stageAdvancedThisRound && s.status !== 'dead' && s.currentStage !== 'exited');
+
+  // 損切り候補: 苦戦中かつ保有中
+  const writeOffCandidates = currentPlayer.portfolio
+    .map(inv => ({ inv, startup: game.allStartups.find(s => s.id === inv.startupId) }))
+    .filter((x): x is { inv: NonNullable<typeof x['inv']>; startup: Startup } =>
+      !!x.startup && x.startup.status === 'struggling'
+    );
+
+  // ── アクションハンドラー ──────────────────────────────────────
 
   function handleLead(startupId: string) {
     dispatchGame({ type: 'INVEST_LEAD', playerId: currentPlayer.id, startupId, amount: 0 });
@@ -163,10 +325,22 @@ export function DealIndividualPhase() {
     dispatchGame({ type: 'PASS_ACTION' });
   }
 
+  function handleFollowOn(startupId: string) {
+    dispatchGame({ type: 'FOLLOW_ON', playerId: currentPlayer.id, startupId, amount: 0 });
+  }
+
+  function handleWriteOff(startupId: string) {
+    dispatchGame({ type: 'WRITE_OFF', startupId });
+  }
+
   function handleEndTurn() {
-    // 次のプレイヤーへ or deal_shared へ
     dispatchGame({ type: 'NEXT_PLAYER' });
   }
+
+  const hasAnything =
+    currentPlayer.handDeals.length > 0 ||
+    followOnOpportunities.length > 0 ||
+    writeOffCandidates.length > 0;
 
   return (
     <div className="space-y-6">
@@ -202,10 +376,10 @@ export function DealIndividualPhase() {
         </div>
       </div>
 
-      {/* 手札 */}
-      {currentPlayer.handDeals.length === 0 ? (
+      {/* 何もない場合 */}
+      {!hasAnything && (
         <div className="bg-slate-800/60 rounded-xl p-8 border border-slate-700 text-center">
-          <p className="text-slate-400">手札がありません。</p>
+          <p className="text-slate-400">手札・投資機会はありません。</p>
           <button
             onClick={handleEndTurn}
             className="mt-4 px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors"
@@ -213,28 +387,80 @@ export function DealIndividualPhase() {
             次へ →
           </button>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {currentPlayer.handDeals.map(deal => {
-            const startup = game.allStartups.find(s => s.id === deal.startupId);
-            if (!startup) return null;
-            return (
-              <DealCard
-                key={deal.startupId}
-                deal={deal}
+      )}
+
+      {/* 手札ディール */}
+      {currentPlayer.handDeals.length > 0 && (
+        <div>
+          <h3 className="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-3">手札ディール</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {currentPlayer.handDeals.map(deal => {
+              const startup = game.allStartups.find(s => s.id === deal.startupId);
+              if (!startup) return null;
+              return (
+                <DealCard
+                  key={deal.startupId}
+                  deal={deal}
+                  startup={startup}
+                  onLead={() => handleLead(deal.startupId)}
+                  onFollow={() => handleFollow(deal.startupId)}
+                  onPass={handlePass}
+                  disabled={isOutOfActions}
+                />
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* フォローオン投資機会 */}
+      {followOnOpportunities.length > 0 && (
+        <div>
+          <h3 className="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-3">
+            フォローオン投資機会
+            <span className="ml-2 text-emerald-400">↑ 今ラウンドにステージ進行した保有先</span>
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {followOnOpportunities.map(startup => (
+              <FollowOnCard
+                key={startup.id}
                 startup={startup}
-                onLead={() => handleLead(deal.startupId)}
-                onFollow={() => handleFollow(deal.startupId)}
-                onPass={handlePass}
-                disabled={isOutOfActions}
+                onConfirm={() => handleFollowOn(startup.id)}
+                onCancel={() => {}}
+                disabled={isOutOfActions || currentPlayer.remainingCapital < Math.round(startup.currentValuation * FOLLOW_INVESTMENT_RATE)}
               />
-            );
-          })}
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 損切り候補 */}
+      {writeOffCandidates.length > 0 && (
+        <div>
+          <h3 className="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-3">
+            損切り候補
+            <span className="ml-2 text-red-400">苦戦中の保有先</span>
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {writeOffCandidates.map(({ inv, startup }) => {
+              const totalInvested = inv.rounds.reduce((sum, r) => sum + r.amount, 0);
+              return (
+                <WriteOffCard
+                  key={startup.id}
+                  startup={startup}
+                  totalInvested={totalInvested}
+                  onConfirm={() => handleWriteOff(startup.id)}
+                  onCancel={() => {}}
+                  disabled={isOutOfActions}
+                />
+              );
+            })}
+          </div>
         </div>
       )}
 
       {/* アクション消費済みバナー */}
-      {isOutOfActions && currentPlayer.handDeals.length > 0 && (
+      {isOutOfActions && hasAnything && (
         <div className="bg-slate-700/40 rounded-xl p-4 border border-slate-600 text-center">
           <p className="text-slate-400 text-sm mb-3">アクションを全て使いました。</p>
           <button
