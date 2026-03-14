@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useGame } from '../../context/GameContext';
 import { formatCurrency, SECTOR_LABELS, STAGE_LABELS } from '../../data/constants';
 import type { GrowthJudgmentResult } from '../../types/game';
@@ -123,9 +124,12 @@ export function GrowthPhase() {
   const { state, dispatchGame } = useGame();
   const game = state.game!;
   const results = game.currentGrowthResults;
+  // hasRolled で「判定実行済み」を追跡。
+  // currentGrowthResults が [] の初期状態と「投資先なしで判定した」状態を区別するため。
+  const [hasRolled, setHasRolled] = useState(false);
 
   // 成長判定がまだ実行されていない
-  if (results.length === 0) {
+  if (!hasRolled) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
         <div className="bg-slate-800/60 rounded-2xl p-8 border border-slate-700 w-full max-w-md text-center">
@@ -136,7 +140,10 @@ export function GrowthPhase() {
             全ポートフォリオ企業の成長判定を行います。
           </p>
           <button
-            onClick={() => dispatchGame({ type: 'RESOLVE_GROWTH' })}
+            onClick={() => {
+              setHasRolled(true);
+              dispatchGame({ type: 'RESOLVE_GROWTH' });
+            }}
             className="w-full px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl transition-colors"
           >
             判定実行

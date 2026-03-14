@@ -92,7 +92,7 @@ export function MarketEventPhase() {
         </div>
 
         <button
-          onClick={() => dispatchGame({ type: 'RESOLVE_GROWTH' })}
+          onClick={() => dispatchGame({ type: 'ADVANCE_PHASE' })}
           className="w-full px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl transition-colors"
         >
           成長判定へ →

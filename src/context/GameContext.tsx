@@ -118,8 +118,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'DRAW_EVENT': {
-      const next = drawEvent(state);
-      return { ...next, currentPhase: 'growth' };
+      return drawEvent(state);
     }
 
     case 'RESOLVE_GROWTH': {
@@ -214,7 +213,9 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'FOLLOW_ON': {
-      return executeFollowInvestment(state, action.playerId, action.startupId, action.amount);
+      const valuation = state.allStartups.find(s => s.id === action.startupId)?.currentValuation ?? 0;
+      const amount = Math.round(action.amount > 0 ? action.amount : valuation * FOLLOW_INVESTMENT_RATE);
+      return executeFollowInvestment(state, action.playerId, action.startupId, amount);
     }
 
     case 'DECLINE_DEAL': {

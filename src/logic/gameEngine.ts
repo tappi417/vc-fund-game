@@ -365,7 +365,7 @@ export function applyGrowthResultsToState(
       if (eff.specialEffect === 'random_death') {
         // 生存中かつ未投資のスタートアップからランダムに1社を死亡させる
         const candidates = updatedStartups.filter(
-          s => (s.status === 'stable' || s.status === 'struggling') && s.investors.length === 0,
+          s => (s.status === 'growing' || s.status === 'stable' || s.status === 'struggling') && s.investors.length === 0,
         );
         if (candidates.length > 0) {
           const victim = candidates[Math.floor(secureRandom() * candidates.length)];
@@ -688,7 +688,12 @@ export function doFinalSettlement(game: GameState): GameState {
 // ラウンド進行
 // ──────────────────────────────────────────────
 
-/** イベントカードを1枚ドローし、ゲームに適用する（フェーズは 'growth' に遷移） */
+/**
+ * イベントカードを1枚ドローし、ゲームに適用する。
+ * - カードあり: フェーズは 'market_event' のまま維持。MarketEventPhase でカード内容を確認後、
+ *   「成長判定へ」ボタン（ADVANCE_PHASE）で 'growth' に進む。
+ * - カードなし: イベントデッキ枯渇のためフェーズを 'growth' へ自動進行。
+ */
 export function drawEvent(game: GameState): GameState {
   if (game.eventDeck.length === 0) {
     return { ...game, currentEvent: null, currentPhase: 'growth' };
@@ -699,7 +704,7 @@ export function drawEvent(game: GameState): GameState {
     currentEvent: card,
     eventDeck: rest,
     eventHistory: [...game.eventHistory, card],
-    currentPhase: 'growth',
+    // currentPhase は 'market_event' のまま — MarketEventPhase でカードを確認させる
   };
 }
 

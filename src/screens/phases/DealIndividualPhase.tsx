@@ -321,8 +321,8 @@ export function DealIndividualPhase() {
     dispatchGame({ type: 'INVEST_FOLLOW', playerId: currentPlayer.id, startupId, amount: 0 });
   }
 
-  function handlePass() {
-    dispatchGame({ type: 'PASS_ACTION' });
+  function handleDecline(startupId: string) {
+    dispatchGame({ type: 'DECLINE_DEAL', startupId });
   }
 
   function handleFollowOn(startupId: string) {
@@ -404,7 +404,7 @@ export function DealIndividualPhase() {
                   startup={startup}
                   onLead={() => handleLead(deal.startupId)}
                   onFollow={() => handleFollow(deal.startupId)}
-                  onPass={handlePass}
+                  onPass={() => handleDecline(deal.startupId)}
                   disabled={isOutOfActions}
                 />
               );
