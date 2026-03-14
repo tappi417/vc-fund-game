@@ -1,22 +1,45 @@
-import { createContext, useContext, useReducer, type ReactNode } from 'react';
-import type { GameState, GameSettings, Player, Screen } from '../types/game';
+import {
+  createContext,
+  useContext,
+  useReducer,
+  useEffect,
+  type ReactNode,
+} from 'react';
+import type {
+  GameState,
+  GameSettings,
+  GameAction,
+  Player,
+  Screen,
+} from '../types/game';
 import { DEFAULT_SETTINGS, calcInvestableCapital } from '../data/constants';
 import { buildDealDeck, buildEventDeck } from '../data/deckBuilder';
 
+// --- セーブフォーマットバージョン ---
+// GameState の型定義を変更したときにインクリメントする。
+// ロード時にバージョン不一致が検出されたセーブは破棄する。
+const SAVE_VERSION = 1;
+
 // --- アプリ全体の状態 ---
 
-interface AppState {
+export interface AppState {
   screen: Screen;
   game: GameState | null;
 }
 
-// --- アクション定義 ---
+interface SaveEnvelope {
+  version: number;
+  savedAt: string; // ISO timestamp
+  state: AppState;
+}
+
+// --- アプリレベルのアクション ---
 
 type AppAction =
   | { type: 'NAVIGATE'; screen: Screen }
   | { type: 'START_GAME'; playerNames: string[]; settings?: Partial<GameSettings> }
-  | { type: 'SET_GAME_STATE'; state: GameState }
-  | { type: 'LOAD_GAME'; state: AppState };
+  | { type: 'DISPATCH_GAME'; action: GameAction }
+  | { type: 'LOAD_SAVE'; envelope: SaveEnvelope };
 
 // --- 初期状態 ---
 
@@ -27,7 +50,10 @@ const initialState: AppState = {
 
 // --- ゲーム初期化 ---
 
-function initializeGame(playerNames: string[], settingsOverride?: Partial<GameSettings>): GameState {
+function initializeGame(
+  playerNames: string[],
+  settingsOverride?: Partial<GameSettings>
+): GameState {
   const settings: GameSettings = { ...DEFAULT_SETTINGS, ...settingsOverride };
   const investableCapital = calcInvestableCapital(settings);
 
@@ -37,6 +63,8 @@ function initializeGame(playerNames: string[], settingsOverride?: Partial<GameSe
     remainingCapital: investableCapital,
     totalInvested: 0,
     realizedReturns: 0,
+    liquidationReturns: 0,
+    managementFeesPaid: 0,
     portfolio: [],
     handDeals: [],
   }));
@@ -58,10 +86,66 @@ function initializeGame(playerNames: string[], settingsOverride?: Partial<GameSe
     eventHistory: [],
     allStartups: startups,
     roundHistory: [],
+    currentGrowthResults: [],
+    currentAuction: null,
+    isGameOver: false,
   };
 }
 
-// --- Reducer ---
+// --- ゲームロジックReducer ---
+// ゲームの状態変化のみを担当（画面遷移はappReducerが担当）
+
+function gameReducer(state: GameState, action: GameAction): GameState {
+  switch (action.type) {
+    // --- Phase 2 で実装するアクション ---
+    // ここにゲームロジックを追加していく
+    // 各アクションは GameState を受け取り、新しい GameState を返す純粋関数
+
+    case 'ADVANCE_PHASE': {
+      const phaseOrder: GameState['currentPhase'][] = [
+        'management_fee',
+        'market_event',
+        'growth',
+        'player_transition',
+        'deal_individual',
+        'deal_shared',
+        'summary',
+      ];
+      const currentIndex = phaseOrder.indexOf(state.currentPhase);
+      const nextPhase = phaseOrder[currentIndex + 1] ?? 'summary';
+      return { ...state, currentPhase: nextPhase };
+    }
+
+    case 'NEXT_PLAYER': {
+      const nextIndex = (state.currentPlayerIndex + 1) % state.players.length;
+      return {
+        ...state,
+        currentPlayerIndex: nextIndex,
+        actionsRemaining: state.settings.actionsPerTurn,
+      };
+    }
+
+    case 'PASS_ACTION': {
+      const remaining = state.actionsRemaining - 1;
+      return { ...state, actionsRemaining: remaining };
+    }
+
+    case 'END_TURN': {
+      return { ...state, actionsRemaining: 0 };
+    }
+
+    case 'END_GAME': {
+      return { ...state, currentPhase: 'game_over', isGameOver: true };
+    }
+
+    // 未実装アクションはスタブとして現状維持
+    default:
+      return state;
+  }
+}
+
+// --- アプリReducer ---
+// 画面遷移とゲームReducerへの委譲を担当
 
 function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
@@ -73,11 +157,17 @@ function appReducer(state: AppState, action: AppAction): AppState {
       return { screen: 'game', game };
     }
 
-    case 'SET_GAME_STATE':
-      return { ...state, game: action.state };
+    case 'DISPATCH_GAME': {
+      if (!state.game) return state;
+      const nextGame = gameReducer(state.game, action.action);
+      // game_over フェーズになったら result 画面へ
+      const nextScreen =
+        nextGame.currentPhase === 'game_over' ? 'result' : state.screen;
+      return { ...state, screen: nextScreen, game: nextGame };
+    }
 
-    case 'LOAD_GAME':
-      return action.state;
+    case 'LOAD_SAVE':
+      return action.envelope.state;
 
     default:
       return state;
@@ -86,20 +176,36 @@ function appReducer(state: AppState, action: AppAction): AppState {
 
 // --- Context ---
 
-interface GameContextValue {
+export interface GameContextValue {
   state: AppState;
+  /** 画面遷移・ゲーム開始などアプリレベルのアクション */
   dispatch: React.Dispatch<AppAction>;
+  /** ゲームロジックのアクション（game が null のときは no-op） */
+  dispatchGame: (action: GameAction) => void;
 }
 
 const GameContext = createContext<GameContextValue | null>(null);
 
 export function GameProvider({ children }: { children: ReactNode }) {
-  // localStorageからの復元を試みる
-  const savedState = loadFromLocalStorage();
-  const [state, dispatch] = useReducer(appReducer, savedState ?? initialState);
+  const savedState = loadSave();
+  const [state, dispatch] = useReducer(
+    appReducer,
+    savedState ? savedState.state : initialState
+  );
+
+  // 状態変化のたびに自動セーブ
+  useEffect(() => {
+    if (state.game) {
+      saveToDisk(state);
+    }
+  }, [state]);
+
+  const dispatchGame = (action: GameAction) => {
+    dispatch({ type: 'DISPATCH_GAME', action });
+  };
 
   return (
-    <GameContext.Provider value={{ state, dispatch }}>
+    <GameContext.Provider value={{ state, dispatch, dispatchGame }}>
       {children}
     </GameContext.Provider>
   );
@@ -113,28 +219,43 @@ export function useGame(): GameContextValue {
   return ctx;
 }
 
-// --- localStorage ---
+// --- localStorage（バージョン付き）---
 
 const SAVE_KEY = 'vc-fund-game-save';
 
-export function saveToLocalStorage(state: AppState): void {
+function saveToDisk(state: AppState): void {
   try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+    const envelope: SaveEnvelope = {
+      version: SAVE_VERSION,
+      savedAt: new Date().toISOString(),
+      state,
+    };
+    localStorage.setItem(SAVE_KEY, JSON.stringify(envelope));
   } catch {
-    // localStorage full or unavailable
+    // localStorage 容量不足など
   }
 }
 
-function loadFromLocalStorage(): AppState | null {
+function loadSave(): SaveEnvelope | null {
   try {
-    const saved = localStorage.getItem(SAVE_KEY);
-    if (saved) {
-      return JSON.parse(saved) as AppState;
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return null;
+
+    const parsed: unknown = JSON.parse(raw);
+    if (
+      typeof parsed !== 'object' ||
+      parsed === null ||
+      !('version' in parsed) ||
+      (parsed as SaveEnvelope).version !== SAVE_VERSION
+    ) {
+      // バージョン不一致 → 古いセーブを破棄
+      localStorage.removeItem(SAVE_KEY);
+      return null;
     }
+    return parsed as SaveEnvelope;
   } catch {
-    // corrupt data
+    return null;
   }
-  return null;
 }
 
 export function clearSaveData(): void {
@@ -142,5 +263,12 @@ export function clearSaveData(): void {
 }
 
 export function hasSaveData(): boolean {
-  return localStorage.getItem(SAVE_KEY) !== null;
+  const raw = localStorage.getItem(SAVE_KEY);
+  if (!raw) return false;
+  try {
+    const parsed = JSON.parse(raw) as SaveEnvelope;
+    return parsed.version === SAVE_VERSION;
+  } catch {
+    return false;
+  }
 }

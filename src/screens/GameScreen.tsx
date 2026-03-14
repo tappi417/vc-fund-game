@@ -7,28 +7,38 @@ import {
 } from '../data/constants';
 import type { Player, Startup, Investment } from '../types/game';
 
-// Phase表示名
 const PHASE_LABELS: Record<string, string> = {
   management_fee: '管理報酬フェーズ',
   market_event: '市場イベントフェーズ',
   growth: '成長判定フェーズ',
+  player_transition: '交代準備',
   deal_individual: 'ディールフェーズ',
   deal_shared: '共有ディールフェーズ',
   summary: 'ラウンドサマリー',
+  exit_judgment: 'Exit判定フェーズ',
+  final_settlement: '最終清算',
+  game_over: 'ゲーム終了',
 };
 
-// 暫定DPI計算
-function calcDPI(player: Player): number {
-  if (player.totalInvested === 0) return 0;
-  return player.realizedReturns / player.totalInvested;
-}
+// Exit済み・死亡を除いた生存企業数
+const EXITED_STATUSES = new Set([
+  'dead',
+  'exited_ma',
+  'exited_ipo',
+  'exited_mega_ipo',
+]);
 
-// ポートフォリオ内の生存企業数
 function aliveCount(player: Player, startups: Startup[]): number {
   return player.portfolio.filter(inv => {
     const s = startups.find(st => st.id === inv.startupId);
-    return s && s.status !== 'dead' && s.status !== 'exited_ma' && s.status !== 'exited_ipo';
+    return s && !EXITED_STATUSES.has(s.status);
   }).length;
+}
+
+// 暫定DPI = (実現Exit回収 + 清算回収) / 投資済み総額
+function calcDPI(player: Player): number {
+  if (player.totalInvested === 0) return 0;
+  return (player.realizedReturns + player.liquidationReturns) / player.totalInvested;
 }
 
 export function GameScreen() {
@@ -92,15 +102,20 @@ export function GameScreen() {
                     <span
                       key={i}
                       className={`text-xs px-2 py-0.5 rounded-full ${
-                        eff.growthModifier > 0
+                        (eff.growthModifier ?? 0) > 0 || (eff.exitModifier ?? 0) > 0
                           ? 'bg-emerald-900/50 text-emerald-400'
-                          : eff.growthModifier < 0
+                          : (eff.growthModifier ?? 0) < 0
                           ? 'bg-red-900/50 text-red-400'
                           : 'bg-slate-700 text-slate-400'
                       }`}
                     >
                       {eff.target === 'all' ? '全セクター' : SECTOR_LABELS[eff.target]}
-                      {eff.growthModifier > 0 ? ` +${eff.growthModifier}` : eff.growthModifier < 0 ? ` ${eff.growthModifier}` : ''}
+                      {eff.growthModifier !== 0 && (
+                        <> 成長{eff.growthModifier > 0 ? `+${eff.growthModifier}` : eff.growthModifier}</>
+                      )}
+                      {eff.exitModifier != null && eff.exitModifier !== 0 && (
+                        <> Exit{eff.exitModifier > 0 ? `+${eff.exitModifier}` : eff.exitModifier}</>
+                      )}
                     </span>
                   ))}
                 </div>
@@ -128,7 +143,7 @@ export function GameScreen() {
                 <span className="text-slate-400 text-sm">投資先数</span>
                 <span className="text-white font-semibold">
                   {currentPlayer.portfolio.length}社
-                  （生存{aliveCount(currentPlayer, game.allStartups)} / 死亡{currentPlayer.portfolio.length - aliveCount(currentPlayer, game.allStartups)}）
+                  （生存{aliveCount(currentPlayer, game.allStartups)} / 消滅{currentPlayer.portfolio.length - aliveCount(currentPlayer, game.allStartups)}）
                 </span>
               </div>
               <div className="flex justify-between">
@@ -229,7 +244,9 @@ export function GameScreen() {
                   <div
                     key={p.id}
                     className={`flex items-center justify-between p-3 rounded-lg ${
-                      i === game.currentPlayerIndex ? 'bg-indigo-900/30 border border-indigo-700' : 'bg-slate-700/30'
+                      i === game.currentPlayerIndex
+                        ? 'bg-indigo-900/30 border border-indigo-700'
+                        : 'bg-slate-700/30'
                     }`}
                   >
                     <div>
@@ -267,6 +284,7 @@ function PortfolioRow({ investment, startup }: { investment: Investment; startup
     dead: 'text-red-400',
     exited_ma: 'text-blue-400',
     exited_ipo: 'text-purple-400',
+    exited_mega_ipo: 'text-yellow-400',
   };
 
   const statusIcon: Record<string, string> = {
@@ -275,7 +293,8 @@ function PortfolioRow({ investment, startup }: { investment: Investment; startup
     struggling: '↓',
     dead: '✕',
     exited_ma: '★',
-    exited_ipo: '★',
+    exited_ipo: '★★',
+    exited_mega_ipo: '★★★',
   };
 
   return (

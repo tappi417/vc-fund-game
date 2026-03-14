@@ -68,11 +68,18 @@ export const STARTUP_TEMPLATES: StartupTemplate[] = [
   { name: 'GridStore', sector: 'cleantech' },
 ];
 
+// Web Crypto API ベースの乱数（Math.random() の代わりに使用）
+function secureRandom(): number {
+  const arr = new Uint32Array(1);
+  crypto.getRandomValues(arr);
+  return arr[0] / (0xFFFFFFFF + 1);
+}
+
 // ポテンシャルに基づくヒント生成
 // 高ポテンシャルほど良いヒントが出やすいが、完全な相関ではない（駆け引き要素）
 export function generateHints(potential: 1 | 2 | 3 | 4 | 5): StartupHints {
   const weightedPick = (goodWeight: number): 'A' | 'B' | 'C' => {
-    const r = Math.random() * 100;
+    const r = secureRandom() * 100;
     if (r < goodWeight) return 'A';
     if (r < goodWeight + (100 - goodWeight) / 2) return 'B';
     return 'C';
@@ -80,11 +87,11 @@ export function generateHints(potential: 1 | 2 | 3 | 4 | 5): StartupHints {
 
   // ポテンシャルが高いほどA評価が出やすい
   const aWeight: Record<number, number> = {
-    1: 10,   // ★1: Aが出る確率10%
+    1: 10,
     2: 20,
     3: 35,
     4: 55,
-    5: 75,   // ★5: Aが出る確率75%
+    5: 75,
   };
 
   const w = aWeight[potential] ?? 35;

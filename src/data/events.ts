@@ -111,16 +111,16 @@ export const EVENT_CARDS: EventCard[] = [
   {
     id: 'exit_01',
     title: 'IPOウィンドウ開放',
-    description: '株式市場が好調でIPO環境が改善。このラウンドのExit判定に有利。',
+    description: '株式市場が好調でIPO環境が改善。このラウンドのExit判定に+2補正。',
     category: 'exit_window',
-    effects: [{ target: 'all', growthModifier: 0 }],
+    effects: [{ target: 'all', growthModifier: 0, exitModifier: +2 }],
   },
   {
     id: 'exit_02',
     title: 'M&Aラッシュ',
-    description: '大手テック企業の買収意欲が旺盛。Exit機会が増加。',
+    description: '大手テック企業の買収意欲が旺盛。Exit機会が増加。このラウンドのExit判定に+1補正。',
     category: 'exit_window',
-    effects: [{ target: 'all', growthModifier: 0 }],
+    effects: [{ target: 'all', growthModifier: 0, exitModifier: +1 }],
   },
 
   // --- ブラックスワン ---

@@ -17,8 +17,8 @@ export const calcInvestableCapital = (settings: GameSettings): number =>
 
 // --- 投資パラメータ ---
 
-export const LEAD_INVESTMENT_RATE = 0.15;    // バリュエーションの15%
-export const FOLLOW_INVESTMENT_RATE = 0.05;  // バリュエーションの5%
+export const LEAD_INVESTMENT_RATE = 0.15;    // バリュエーションの15%（仕様範囲: 15〜20%の下限を採用）
+export const FOLLOW_INVESTMENT_RATE = 0.05;  // バリュエーションの5%（仕様範囲: 5〜10%の下限を採用）
 export const LEAD_DICE_BONUS = 1;            // リード投資家ダイス+1
 
 // --- バリュエーションレンジ（億円単位を円に変換済み） ---
@@ -50,8 +50,10 @@ export const POTENTIAL_DISTRIBUTION: { potential: 1 | 2 | 3 | 4 | 5; weight: num
 ];
 
 // --- 成長判定テーブル ---
+// GrowthResult / ExitResult の型は types/game.ts で定義
+// ここでは判定ロジック（関数）のみ保持する
 
-export type GrowthResult = 'death' | 'struggling' | 'stable' | 'growth' | 'rapid_growth' | 'breakout';
+import type { GrowthResult, ExitResult } from '../types/game';
 
 export const getGrowthResult = (modifiedRoll: number): GrowthResult => {
   if (modifiedRoll <= 3) return 'death';
@@ -71,8 +73,6 @@ export const VALUATION_MULTIPLIER = {
 } as const;
 
 // --- Exit判定テーブル ---
-
-export type ExitResult = 'fail' | 'ma' | 'ipo' | 'mega_ipo';
 
 export const getExitResult = (modifiedRoll: number): ExitResult => {
   if (modifiedRoll <= 5) return 'fail';
@@ -96,9 +96,9 @@ export const LIQUIDATION_DISCOUNT = 0.5;
 // --- ディールフロー配布枚数 ---
 
 export const DEAL_DISTRIBUTION = {
-  early:  { individual: { min: 2, max: 3 }, shared: 2 },  // ラウンド1〜3
-  mid:    { individual: { min: 1, max: 2 }, shared: 1 },  // ラウンド4〜5
-  late:   { individual: { min: 0, max: 0 }, shared: 0 },  // ラウンド6〜10
+  early: { individual: { min: 2, max: 3 }, shared: 2 }, // ラウンド1〜3
+  mid:   { individual: { min: 1, max: 2 }, shared: 1 }, // ラウンド4〜5
+  late:  { individual: { min: 0, max: 0 }, shared: 0 }, // ラウンド6〜10（フォローオンのみ）
 } as const;
 
 export const getDealPhase = (round: number): 'early' | 'mid' | 'late' => {
@@ -138,6 +138,7 @@ export const STATUS_LABELS: Record<string, string> = {
   dead: '死亡',
   exited_ma: 'M&A Exit',
   exited_ipo: 'IPO Exit',
+  exited_mega_ipo: 'メガIPO Exit',
 };
 
 // --- 金額フォーマット ---
