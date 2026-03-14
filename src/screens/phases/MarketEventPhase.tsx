@@ -1,9 +1,21 @@
+import { useState, useEffect } from 'react';
 import { useGame } from '../../context/GameContext';
 import { SECTOR_LABELS } from '../../data/constants';
 
 export function MarketEventPhase() {
   const { state, dispatchGame } = useGame();
   const game = state.game!;
+  const [isRevealing, setIsRevealing] = useState(false);
+
+  // イベントカードが引かれたとき（null → 非null）にアニメーションをトリガー
+  useEffect(() => {
+    if (game.currentEvent) {
+      setIsRevealing(true);
+      const t = setTimeout(() => setIsRevealing(false), 600);
+      return () => clearTimeout(t);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [game.currentEvent?.id]);
 
   const categoryLabel: Record<string, string> = {
     bubble: 'バブル',
@@ -55,7 +67,10 @@ export function MarketEventPhase() {
           市場イベント — Year {game.currentRound}
         </h2>
 
-        <div className={`rounded-xl p-6 border mb-6 ${colorClass}`}>
+        <div
+          className={`rounded-xl p-6 border mb-6 ${colorClass}`}
+          style={isRevealing ? { animation: 'cardReveal 0.45s ease-out' } : undefined}
+        >
           <div className="flex items-start justify-between mb-3">
             <h3 className="text-white text-xl font-bold">{ev.title}</h3>
             <span className={`text-xs px-2 py-1 rounded-full border ${colorClass}`}>

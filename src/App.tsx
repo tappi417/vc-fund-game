@@ -2,6 +2,7 @@ import { useGame } from './context/GameContext';
 import { TitleScreen } from './screens/TitleScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 import { GameScreen } from './screens/GameScreen';
+import { ResultScreen } from './screens/ResultScreen';
 
 export function App() {
   const { state } = useGame();
@@ -14,8 +15,7 @@ export function App() {
     case 'game':
       return <GameScreen />;
     case 'result':
-      // Phase 4で実装予定
-      return <GameScreen />;
+      return <ResultScreen />;
     default:
       return <TitleScreen />;
   }

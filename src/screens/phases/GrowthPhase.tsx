@@ -43,7 +43,7 @@ function DiceIcon({ values }: { values: [number, number] }) {
   );
 }
 
-function GrowthRow({ result }: { result: GrowthJudgmentResult }) {
+function GrowthRow({ result, index }: { result: GrowthJudgmentResult; index: number }) {
   const { state } = useGame();
   const startup = state.game!.allStartups.find(s => s.id === result.startupId);
   if (!startup) return null;
@@ -52,7 +52,16 @@ function GrowthRow({ result }: { result: GrowthJudgmentResult }) {
   const valuationChanged = result.newValuation !== result.previousValuation;
 
   return (
-    <div className="bg-slate-700/40 rounded-xl p-4 border border-slate-600">
+    <div
+      className={`rounded-xl p-4 border ${
+        result.result === 'death'
+          ? 'bg-red-900/20 border-red-700/60'
+          : result.result === 'breakout'
+          ? 'bg-yellow-900/20 border-yellow-600/60'
+          : 'bg-slate-700/40 border-slate-600'
+      }`}
+      style={{ animation: `fadeInUp 0.35s ease-out ${index * 80}ms both` }}
+    >
       <div className="flex items-start justify-between mb-2">
         <div>
           <span className="text-white font-bold">{startup.name}</span>
@@ -124,9 +133,40 @@ export function GrowthPhase() {
   const { state, dispatchGame } = useGame();
   const game = state.game!;
   const results = game.currentGrowthResults;
-  // hasRolled で「判定実行済み」を追跡。
-  // currentGrowthResults が [] の初期状態と「投資先なしで判定した」状態を区別するため。
   const [hasRolled, setHasRolled] = useState(false);
+  const [isRolling, setIsRolling] = useState(false);
+  const [rollingDice, setRollingDice] = useState<[number, number]>([3, 4]);
+
+  function handleRoll() {
+    setIsRolling(true);
+    const iv = setInterval(() => {
+      setRollingDice([
+        Math.ceil(Math.random() * 6) as 1 | 2 | 3 | 4 | 5 | 6,
+        Math.ceil(Math.random() * 6) as 1 | 2 | 3 | 4 | 5 | 6,
+      ]);
+    }, 80);
+    setTimeout(() => {
+      clearInterval(iv);
+      setIsRolling(false);
+      setHasRolled(true);
+      dispatchGame({ type: 'RESOLVE_GROWTH' });
+    }, 900);
+  }
+
+  // ダイスロール演出中
+  if (isRolling) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6">
+        <div className="text-center">
+          <div className="text-5xl mb-6">🎲</div>
+          <div className="font-mono font-bold text-white bg-slate-700 px-8 py-5 rounded-2xl text-5xl tracking-widest">
+            {rollingDice[0]} + {rollingDice[1]}
+          </div>
+          <p className="text-slate-400 mt-4 text-sm">判定中...</p>
+        </div>
+      </div>
+    );
+  }
 
   // 成長判定がまだ実行されていない
   if (!hasRolled) {
@@ -140,13 +180,10 @@ export function GrowthPhase() {
             全ポートフォリオ企業の成長判定を行います。
           </p>
           <button
-            onClick={() => {
-              setHasRolled(true);
-              dispatchGame({ type: 'RESOLVE_GROWTH' });
-            }}
+            onClick={handleRoll}
             className="w-full px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl transition-colors"
           >
-            判定実行
+            🎲 判定実行
           </button>
         </div>
       </div>
@@ -176,8 +213,8 @@ export function GrowthPhase() {
         </p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {results.map(r => (
-            <GrowthRow key={r.startupId} result={r} />
+          {results.map((r, i) => (
+            <GrowthRow key={r.startupId} result={r} index={i} />
           ))}
         </div>
       )}

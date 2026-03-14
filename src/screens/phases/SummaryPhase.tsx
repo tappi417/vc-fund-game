@@ -2,6 +2,17 @@ import { useGame } from '../../context/GameContext';
 import { formatCurrency } from '../../data/constants';
 import { calcUnrealizedValue } from '../../logic/gameEngine';
 import type { GrowthJudgmentResult } from '../../types/game';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from 'recharts';
+
+const PLAYER_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
 
 function calcDPI(realizedReturns: number, liquidationReturns: number, totalInvested: number): number {
   if (totalInvested === 0) return 0;
@@ -44,6 +55,16 @@ export function SummaryPhase() {
   const highlights = results
     .filter(r => r.result === 'breakout' || r.result === 'rapid_growth' || r.result === 'death' || r.isExitJudgment)
     .slice(0, 5);
+
+  // DPI推移グラフデータ（roundHistory から構築）
+  const dpiChartData = game.roundHistory.map(snap => {
+    const point: Record<string, string | number> = { round: `Y${snap.round}` };
+    snap.playerSnapshots.forEach(ps => {
+      const name = game.players.find(p => p.id === ps.playerId)?.fundName ?? ps.playerId;
+      point[name] = +ps.dpi.toFixed(3);
+    });
+    return point;
+  });
 
   function handleNext() {
     if (isLastRound) {
@@ -120,6 +141,37 @@ export function SummaryPhase() {
           })}
         </div>
       </section>
+
+      {/* DPI推移グラフ（Round 2以降に表示） */}
+      {dpiChartData.length > 0 && (
+        <section className="bg-slate-800/60 rounded-xl p-5 border border-slate-700">
+          <h3 className="text-slate-400 text-xs font-medium uppercase tracking-wider mb-4">
+            DPI推移
+          </h3>
+          <ResponsiveContainer width="100%" height={160}>
+            <LineChart data={dpiChartData} margin={{ top: 4, right: 8, bottom: 0, left: -20 }}>
+              <XAxis dataKey="round" tick={{ fill: '#94a3b8', fontSize: 11 }} />
+              <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} />
+              <Tooltip
+                contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: 8 }}
+                labelStyle={{ color: '#94a3b8' }}
+                formatter={(val: number) => [`${val.toFixed(2)}x`, '']}
+              />
+              <Legend wrapperStyle={{ fontSize: 11, color: '#94a3b8' }} />
+              {game.players.map((p, i) => (
+                <Line
+                  key={p.id}
+                  type="monotone"
+                  dataKey={p.fundName}
+                  stroke={PLAYER_COLORS[i % PLAYER_COLORS.length]}
+                  strokeWidth={2}
+                  dot={{ r: 3 }}
+                />
+              ))}
+            </LineChart>
+          </ResponsiveContainer>
+        </section>
+      )}
 
       {/* 今ラウンドのハイライト */}
       {highlights.length > 0 && (
