@@ -47,7 +47,9 @@ export function SummaryPhase() {
   const rankedPlayers = [...game.players].sort((a, b) => {
     const dpiA = calcDPI(a.realizedReturns, a.liquidationReturns, a.totalInvested);
     const dpiB = calcDPI(b.realizedReturns, b.liquidationReturns, b.totalInvested);
-    return dpiB - dpiA;
+    if (dpiB !== dpiA) return dpiB - dpiA;
+    if (b.totalInvested !== a.totalInvested) return b.totalInvested - a.totalInvested;
+    return a.fundName.localeCompare(b.fundName);
   });
 
   // 今ラウンドのハイライト

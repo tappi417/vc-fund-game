@@ -34,7 +34,10 @@ export function ResultScreen() {
   const rankedPlayers = [...game.players].sort((a, b) => {
     const dpiA = calcFinalDPI(a.realizedReturns, a.liquidationReturns, a.totalInvested);
     const dpiB = calcFinalDPI(b.realizedReturns, b.liquidationReturns, b.totalInvested);
-    return dpiB - dpiA;
+    if (dpiB !== dpiA) return dpiB - dpiA;
+    // 同点: 総投資額が多い方を上位（より積極的）、さらに同じならファンド名アルファベット順
+    if (b.totalInvested !== a.totalInvested) return b.totalInvested - a.totalInvested;
+    return a.fundName.localeCompare(b.fundName);
   });
 
   // DPI推移グラフデータ（全ラウンド）

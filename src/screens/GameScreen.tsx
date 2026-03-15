@@ -82,15 +82,6 @@ export function GameScreen() {
       case 'deal_individual':  return <DealIndividualPhase />;
       case 'deal_shared':      return <DealSharedPhase />;
       case 'summary':          return <SummaryPhase />;
-      case 'final_settlement':
-      case 'game_over':
-        return (
-          <div className="flex items-center justify-center min-h-[60vh]">
-            <div className="text-center">
-              <p className="text-white text-xl mb-4">ゲーム終了処理中...</p>
-            </div>
-          </div>
-        );
       default:
         return (
           <div className="text-slate-400 text-center py-12">

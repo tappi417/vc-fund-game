@@ -135,7 +135,7 @@ export function GrowthPhase() {
   const results = game.currentGrowthResults;
   const [hasRolled, setHasRolled] = useState(false);
   const [isRolling, setIsRolling] = useState(false);
-  const [rollingDice, setRollingDice] = useState<[number, number]>([3, 4]);
+  const [rollingDice, setRollingDice] = useState<[number, number]>([1, 1]);
 
   function handleRoll() {
     setIsRolling(true);
