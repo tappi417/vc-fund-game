@@ -3,6 +3,7 @@ import { useGame, hasSaveData, getSaveTimestamp } from '../context/GameContext';
 export function TitleScreen() {
   const { dispatch } = useGame();
   const canContinue = hasSaveData();
+  const saveTimestamp = getSaveTimestamp();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 flex items-center justify-center p-4">
@@ -35,9 +36,9 @@ export function TitleScreen() {
               >
                 続きから
               </button>
-              {getSaveTimestamp() && (
+              {saveTimestamp && (
                 <p className="text-slate-500 text-xs text-center mt-1.5">
-                  {getSaveTimestamp()}
+                  {saveTimestamp}
                 </p>
               )}
             </div>
