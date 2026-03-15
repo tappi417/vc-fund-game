@@ -232,13 +232,31 @@ export function GameScreen() {
                   ポートフォリオ
                 </h3>
                 <div className="space-y-2">
-                  {currentPlayer.portfolio.map(inv => {
-                    const startup = game.allStartups.find(s => s.id === inv.startupId);
-                    if (!startup) return null;
-                    return (
+                  {[...currentPlayer.portfolio]
+                    .map(inv => {
+                      const startup = game.allStartups.find(s => s.id === inv.startupId);
+                      if (!startup) return null;
+                      const isExited = EXITED_STATUSES.has(startup.status);
+                      const isDead = startup.status === 'dead';
+                      const terminated = isExited || isDead;
+                      const costBasis = inv.rounds.reduce((s, r) => s + r.amount, 0);
+                      const currentValue = isExited
+                        ? (startup.exitValuation ?? startup.currentValuation) * (inv.ownershipPercent / 100)
+                        : isDead ? 0
+                        : startup.currentValuation * (inv.ownershipPercent / 100);
+                      const multiple = costBasis > 0 ? currentValue / costBasis : 0;
+                      return { inv, startup, terminated, multiple };
+                    })
+                    .filter((x): x is NonNullable<typeof x> => x !== null)
+                    .sort((a, b) => {
+                      // 清算済み・死亡を末尾へ
+                      if (a.terminated !== b.terminated) return a.terminated ? 1 : -1;
+                      // 同グループ内は倍率降順
+                      return b.multiple - a.multiple;
+                    })
+                    .map(({ inv, startup }) => (
                       <PortfolioMiniRow key={inv.startupId} investment={inv} startup={startup} />
-                    );
-                  })}
+                    ))}
                 </div>
               </section>
             )}
