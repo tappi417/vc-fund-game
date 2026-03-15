@@ -49,9 +49,11 @@ VC投資では、ファンドリターンの大部分が少数の大成功案件
 - **乱数生成**: Web Crypto API（`crypto.getRandomValues` による暗号論的乱数）
 - **グラフ**: Recharts（資産推移・ファンドパフォーマンス表示用）
 
-ビルド後は `dist/` フォルダの静的ファイルのみで動作すること。
+ビルド後は `dist/index.html` 単一ファイルで動作すること（`vite-plugin-singlefile` によるインライン化）。
 
 > **実装ノート**: Vite 8 + Tailwind CSS v4 + Recharts はピア依存関係の不一致があるため、インストール時は `--legacy-peer-deps` フラグを使用する。
+>
+> **配布ノート**: `vite-plugin-singlefile` を使用しており、ビルド成果物は `dist/index.html` の1ファイルのみ。すべてのJS/CSSがHTML内にインライン化されるため、`file://` プロトコルで直接開いても動作する（ChromeのESモジュールCORSエラーを回避）。
 
 ---
 
@@ -1107,6 +1109,30 @@ interface SaveEnvelope {
 5. ブレイクアウト発生 → 「パワーロウ則」解説
 
 **影響ファイル**: `src/screens/phases/SummaryPhase.tsx`
+
+---
+
+### [変更20] TypeScriptビルドエラー修正 + vite-plugin-singlefile導入 — commit `75f7786`, `3d19e08`
+
+**背景**: `npm run build` 実行時に5件のTypeScriptエラーが発生。修正後、`dist/index.html` をChromeで直接開くと真っ白になる問題が判明（`file://` プロトコルでのESモジュールCORSエラー）。
+
+**TypeScriptエラー修正** (`75f7786`):
+
+| エラー | ファイル | 修正内容 |
+|--------|---------|---------|
+| `TS6133`: `STAGE_LABELS` 未使用 | `GameScreen.tsx` | importから削除 |
+| `TS6133`: `deal` 未使用 | `DealIndividualPhase.tsx` | `_deal` にリネーム |
+| `TS6133`: `onCancel` 未使用 (×2) | `DealIndividualPhase.tsx` | `FollowOnCard`・`WriteOffCard` からprop削除 |
+| `TS2322`: Rechartsの `Formatter` 型不一致 (×3) | `SummaryPhase.tsx`, `ResultScreen.tsx` | `(val: number)` → `(val: unknown)` + `typeof` ガード |
+
+**vite-plugin-singlefile導入** (`3d19e08`):
+
+- `vite-plugin-singlefile` をインストール（`--legacy-peer-deps`）
+- `vite.config.ts` に `viteSingleFile()` プラグインを追加
+- ビルド成果物が `dist/index.html` 1ファイルに統合される（JS/CSS完全インライン化）
+- `file://` プロトコルでChromeから直接開いても動作するようになった
+
+**影響ファイル**: `vite.config.ts`, `package.json`, `src/screens/GameScreen.tsx`, `src/screens/phases/DealIndividualPhase.tsx`, `src/screens/phases/SummaryPhase.tsx`, `src/screens/ResultScreen.tsx`
 
 ---
 
