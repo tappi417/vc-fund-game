@@ -68,6 +68,27 @@ function GrowthRow({ result, index }: { result: GrowthJudgmentResult; index: num
           <span className="text-slate-400 text-xs ml-2">
             {SECTOR_LABELS[startup.sector]} · {STAGE_LABELS[result.previousStage]}
           </span>
+          {startup.investors.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-1">
+              {startup.investors.map(pid => {
+                const player = state.game!.players.find(p => p.id === pid);
+                if (!player) return null;
+                const isLead = startup.leadInvestorId === pid;
+                return (
+                  <span
+                    key={pid}
+                    className={`text-[10px] px-1.5 py-0.5 rounded-full border ${
+                      isLead
+                        ? 'bg-indigo-900/60 text-indigo-300 border-indigo-600/60'
+                        : 'bg-slate-700/60 text-slate-400 border-slate-600/60'
+                    }`}
+                  >
+                    {player.fundName}{isLead ? ' ★' : ''}
+                  </span>
+                );
+              })}
+            </div>
+          )}
         </div>
         <span className={`font-bold text-sm ${GROWTH_COLORS[result.result] ?? 'text-slate-300'}`}>
           {GROWTH_LABELS[result.result] ?? result.result}
