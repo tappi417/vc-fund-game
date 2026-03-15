@@ -1,4 +1,5 @@
-import { useGame } from '../context/GameContext';
+import { useState } from 'react';
+import { useGame, clearSaveData } from '../context/GameContext';
 import {
   formatCurrency,
   SECTOR_LABELS,
@@ -63,6 +64,7 @@ function calcDPI(player: Player): number {
 export function GameScreen() {
   const { state, dispatch } = useGame();
   const game = state.game;
+  const [showExitModal, setShowExitModal] = useState(false);
 
   if (!game) {
     return (
@@ -106,7 +108,7 @@ export function GameScreen() {
       {/* ヘッダー */}
       <header className="bg-slate-800/80 backdrop-blur border-b border-slate-700 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 py-2">
-          {/* 上段: ラウンド情報 + プレイヤー情報 */}
+          {/* 上段: ラウンド情報 + プレイヤー情報 + 終了ボタン */}
           <div className="flex items-center justify-between mb-2">
             <span className="text-indigo-400 font-bold text-base">
               Year {game.currentRound} / {game.settings.totalRounds}
@@ -118,12 +120,48 @@ export function GameScreen() {
               <span className="text-emerald-400 text-sm font-semibold">
                 {formatCurrency(currentPlayer.remainingCapital)}
               </span>
+              <button
+                onClick={() => setShowExitModal(true)}
+                className="text-slate-500 hover:text-slate-300 transition-colors p-1 rounded"
+                title="ゲームメニュー"
+              >
+                ☰
+              </button>
             </div>
           </div>
           {/* 下段: フェーズステッパー */}
           <PhaseStepIndicator currentPhase={game.currentPhase} />
         </div>
       </header>
+
+      {/* ゲーム終了確認モーダル */}
+      {showExitModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-slate-800 border border-slate-600 rounded-2xl p-8 w-full max-w-sm mx-4 shadow-2xl">
+            <h2 className="text-white font-bold text-lg mb-2">ゲームを終了しますか？</h2>
+            <p className="text-slate-400 text-sm mb-6">
+              セーブデータが削除され、タイトル画面に戻ります。この操作は取り消せません。
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowExitModal(false)}
+                className="flex-1 py-2.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-medium transition-colors"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={() => {
+                  clearSaveData();
+                  dispatch({ type: 'NAVIGATE', screen: 'title' });
+                }}
+                className="flex-1 py-2.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm font-medium transition-colors"
+              >
+                終了する
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* 左サイドバー: ファンドサマリー（player_transition以外で常時表示）*/}
