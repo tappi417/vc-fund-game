@@ -166,6 +166,101 @@ export function ResultScreen() {
           </section>
         )}
 
+        {/* ファンド別パワーロウ分析 */}
+        <section className="bg-slate-800/60 rounded-xl p-5 border border-slate-700">
+          <h2 className="text-slate-400 text-xs font-medium uppercase tracking-wider mb-1">
+            ファンド別 パワーロウ分析
+          </h2>
+          <p className="text-slate-500 text-xs mb-4">
+            各ファンドのリターンが少数の投資先に集中しているかを確認する
+          </p>
+          <div className="space-y-4">
+            {rankedPlayers.map(player => {
+              const playerIdx = game.players.findIndex(p => p.id === player.id);
+              const playerColor = PLAYER_COLORS[playerIdx % PLAYER_COLORS.length];
+
+              // 各投資先のリターンを計算（コスト・回収額・倍率）
+              const invReturns = player.portfolio.map(inv => {
+                const s = game.allStartups.find(st => st.id === inv.startupId);
+                const costBasis = inv.rounds.reduce((sum, r) => sum + r.amount, 0);
+                const returnValue = !s || s.status === 'dead' ? 0
+                  : (s.exitValuation ?? s.currentValuation) * inv.ownershipPercent / 100;
+                return {
+                  name: s?.name ?? '不明',
+                  sector: s?.sector ?? 'saas' as const,
+                  costBasis,
+                  returnValue,
+                  multiple: costBasis > 0 ? returnValue / costBasis : 0,
+                };
+              }).sort((a, b) => b.returnValue - a.returnValue);
+
+              const totalReturn = invReturns.reduce((sum, r) => sum + r.returnValue, 0);
+              const topShare = totalReturn > 0 ? (invReturns[0]?.returnValue ?? 0) / totalReturn * 100 : 0;
+
+              const badge = topShare >= 50
+                ? { text: 'パワーロウ顕著', cls: 'text-emerald-400 bg-emerald-900/30 border-emerald-700/50' }
+                : topShare >= 30
+                ? { text: 'やや集中', cls: 'text-amber-400 bg-amber-900/30 border-amber-700/50' }
+                : { text: '分散型', cls: 'text-slate-400 bg-slate-700/50 border-slate-600/50' };
+
+              return (
+                <div key={player.id} className="bg-slate-900/40 rounded-lg p-4 border border-slate-700/60">
+                  {/* ヘッダー */}
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: playerColor }} />
+                      <span className="text-white font-semibold text-sm">{player.fundName}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full border ${badge.cls}`}>
+                        {badge.text}
+                      </span>
+                    </div>
+                    {totalReturn > 0 && (
+                      <span className="text-slate-400 text-xs">上位1社 {topShare.toFixed(0)}%</span>
+                    )}
+                  </div>
+
+                  {/* 投資先ランキング（バー付き） */}
+                  {invReturns.length === 0 ? (
+                    <p className="text-slate-500 text-xs">投資なし</p>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {invReturns.map((inv, i) => {
+                        const barPct = totalReturn > 0 ? inv.returnValue / totalReturn * 100 : 0;
+                        const isTop = i === 0 && inv.returnValue > 0;
+                        return (
+                          <div key={i} className="flex items-center gap-2 text-xs">
+                            <span className="text-slate-600 w-4 shrink-0 text-center">#{i + 1}</span>
+                            <span className={`w-24 truncate shrink-0 ${isTop ? 'text-white font-semibold' : 'text-slate-300'}`}>
+                              {inv.name}
+                            </span>
+                            <span className="text-slate-500 w-14 shrink-0">{SECTOR_LABELS[inv.sector]}</span>
+                            <div className="flex-1 h-3.5 bg-slate-700/50 rounded overflow-hidden">
+                              {barPct > 0 && (
+                                <div
+                                  className={`h-full rounded ${isTop ? 'bg-indigo-500' : 'bg-slate-600'}`}
+                                  style={{ width: `${barPct}%` }}
+                                />
+                              )}
+                            </div>
+                            <span className="text-slate-400 w-8 text-right shrink-0">{barPct.toFixed(0)}%</span>
+                            <span className={`w-12 text-right shrink-0 font-medium ${
+                              inv.multiple >= 3 ? 'text-yellow-400' :
+                              inv.multiple >= 1 ? 'text-emerald-400' :
+                              inv.multiple > 0 ? 'text-amber-400' : 'text-red-400'
+                            }`}>
+                              {inv.multiple.toFixed(1)}x
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
         {/* パワーロウ分布 */}
         {exitData.length > 0 && (
           <section className="bg-slate-800/60 rounded-xl p-5 border border-slate-700">
