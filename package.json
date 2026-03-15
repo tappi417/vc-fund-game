@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && sed -i '' 's|src=\"/assets/|src=\"./assets/|g; s|href=\"/assets/|href=\"./assets/|g' dist/index.html",
     "lint": "eslint .",
     "preview": "vite preview"
   },
