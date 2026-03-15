@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useGame } from '../../context/GameContext';
-import { formatCurrency, SECTOR_LABELS, STAGE_LABELS, LEAD_INVESTMENT_RATE, FOLLOW_INVESTMENT_RATE } from '../../data/constants';
+import { formatCurrency, SECTOR_LABELS, STAGE_LABELS, LEAD_INVESTMENT_RATE, FOLLOW_INVESTMENT_RATE, WRITE_OFF_RECOVERY_RATE } from '../../data/constants';
 import type { Startup, DealCard } from '../../types/game';
 
 const HINT_STARS: Record<string, string> = {
@@ -226,13 +226,26 @@ function WriteOffCard({ startup, totalInvested, onConfirm, disabled }: {
 }) {
   const [confirming, setConfirming] = useState(false);
 
+  const recovery = Math.floor(totalInvested * WRITE_OFF_RECOVERY_RATE);
+
   if (confirming) {
     return (
       <div className="bg-red-900/30 rounded-xl p-4 border border-red-600">
         <h4 className="text-white font-bold mb-1">{startup.name}</h4>
-        <p className="text-slate-300 text-sm mb-1">
-          投資額 <span className="text-red-300 font-bold">{formatCurrency(totalInvested)}</span> は回収できません。
-        </p>
+        <div className="text-sm mb-3 space-y-1">
+          <div className="flex justify-between">
+            <span className="text-slate-400">投資額</span>
+            <span className="text-red-300 font-bold">{formatCurrency(totalInvested)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-slate-400">部分回収（{Math.round(WRITE_OFF_RECOVERY_RATE * 100)}%）</span>
+            <span className="text-emerald-400 font-bold">+{formatCurrency(recovery)}</span>
+          </div>
+          <div className="flex justify-between border-t border-red-800/50 pt-1 mt-1">
+            <span className="text-slate-400">実質損失</span>
+            <span className="text-red-400 font-bold">-{formatCurrency(totalInvested - recovery)}</span>
+          </div>
+        </div>
         <p className="text-slate-400 text-xs mb-4">
           本当に損切りしますか？この操作は取り消せません。
         </p>
@@ -271,9 +284,14 @@ function WriteOffCard({ startup, totalInvested, onConfirm, disabled }: {
         <span className="text-red-400 font-bold text-sm">{formatCurrency(startup.currentValuation)}</span>
       </div>
       <div className="flex items-center justify-between mt-3">
-        <span className="text-slate-400 text-xs">
-          投資額: <span className="text-slate-200">{formatCurrency(totalInvested)}</span>
-        </span>
+        <div className="text-xs space-y-0.5">
+          <div className="text-slate-400">
+            投資額: <span className="text-slate-200">{formatCurrency(totalInvested)}</span>
+          </div>
+          <div className="text-slate-500">
+            回収可能: <span className="text-emerald-500">+{formatCurrency(recovery)}</span>
+          </div>
+        </div>
         <button
           onClick={() => setConfirming(true)}
           disabled={disabled}

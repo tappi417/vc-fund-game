@@ -20,6 +20,7 @@ export const calcInvestableCapital = (settings: GameSettings): number =>
 export const LEAD_INVESTMENT_RATE = 0.15;    // バリュエーションの15%（仕様範囲: 15〜20%の下限を採用）
 export const FOLLOW_INVESTMENT_RATE = 0.05;  // バリュエーションの5%（仕様範囲: 5〜10%の下限を採用）
 export const LEAD_DICE_BONUS = 1;            // リード投資家ダイス+1
+export const WRITE_OFF_RECOVERY_RATE = 0.15; // 損切り時の部分回収率（投資額の15%）
 
 // --- バリュエーションレンジ（億円単位を円に変換済み） ---
 

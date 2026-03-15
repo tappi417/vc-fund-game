@@ -12,7 +12,7 @@ import type {
   Player,
   Screen,
 } from '../types/game';
-import { DEFAULT_SETTINGS, calcInvestableCapital, LEAD_INVESTMENT_RATE, FOLLOW_INVESTMENT_RATE } from '../data/constants';
+import { DEFAULT_SETTINGS, calcInvestableCapital, LEAD_INVESTMENT_RATE, FOLLOW_INVESTMENT_RATE, WRITE_OFF_RECOVERY_RATE } from '../data/constants';
 import { buildDealDeck, buildEventDeck } from '../data/deckBuilder';
 import {
   drawEvent,
@@ -235,12 +235,17 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'WRITE_OFF': {
-      // ポートフォリオ企業の自発的損金処理（アクション消費、portfolio から除去）
+      // ポートフォリオ企業の自発的損金処理（アクション消費、投資額の15%を回収）
       const updatedPlayers = state.players.map((p, i) => {
         if (i !== state.currentPlayerIndex) return p;
+        const inv = p.portfolio.find(inv => inv.startupId === action.startupId);
+        const totalInvested = inv ? inv.rounds.reduce((s, r) => s + r.amount, 0) : 0;
+        const recovery = Math.floor(totalInvested * WRITE_OFF_RECOVERY_RATE);
         return {
           ...p,
           portfolio: p.portfolio.filter(inv => inv.startupId !== action.startupId),
+          remainingCapital: p.remainingCapital + recovery,
+          realizedReturns: p.realizedReturns + recovery,
         };
       });
       return {
