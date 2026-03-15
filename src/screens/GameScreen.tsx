@@ -2,7 +2,6 @@ import { useGame } from '../context/GameContext';
 import {
   formatCurrency,
   SECTOR_LABELS,
-  STAGE_LABELS,
   STATUS_LABELS,
 } from '../data/constants';
 import type { Player, Startup, Investment } from '../types/game';

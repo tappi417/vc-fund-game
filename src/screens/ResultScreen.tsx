@@ -147,7 +147,7 @@ export function ResultScreen() {
                 <Tooltip
                   contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: 8 }}
                   labelStyle={{ color: '#94a3b8' }}
-                  formatter={(val: number) => [`${val.toFixed(2)}x`, '']}
+                  formatter={(val: unknown) => [typeof val === 'number' ? `${val.toFixed(2)}x` : '', '']}
                 />
                 <Legend wrapperStyle={{ fontSize: 12, color: '#94a3b8' }} />
                 {game.players.map((p, i) => (
@@ -188,7 +188,7 @@ export function ResultScreen() {
                 <Tooltip
                   contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: 8 }}
                   labelStyle={{ color: '#e2e8f0' }}
-                  formatter={(val: number) => [`${val}億円`, 'Exit評価額']}
+                  formatter={(val: unknown) => [typeof val === 'number' ? `${val}億円` : '', 'Exit評価額']}
                 />
                 <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                   {exitData.map((entry, i) => (

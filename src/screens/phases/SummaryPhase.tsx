@@ -210,7 +210,7 @@ export function SummaryPhase() {
               <Tooltip
                 contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: 8 }}
                 labelStyle={{ color: '#94a3b8' }}
-                formatter={(val: number) => [`${val.toFixed(2)}x`, '']}
+                formatter={(val: unknown) => [typeof val === 'number' ? `${val.toFixed(2)}x` : '', '']}
               />
               <Legend wrapperStyle={{ fontSize: 11, color: '#94a3b8' }} />
               {game.players.map((p, i) => (

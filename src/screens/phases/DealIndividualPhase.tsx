@@ -17,7 +17,7 @@ const HINT_COLORS: Record<string, string> = {
 
 // ── 手札ディールカード ────────────────────────────────────────────
 
-function DealCard({ deal, startup, onLead, onFollow, onPass, disabled }: {
+function DealCard({ deal: _deal, startup, onLead, onFollow, onPass, disabled }: {
   deal: DealCard;
   startup: Startup;
   onLead: () => void;
@@ -147,10 +147,9 @@ function DealCard({ deal, startup, onLead, onFollow, onPass, disabled }: {
 
 // ── フォローオン投資カード ───────────────────────────────────────
 
-function FollowOnCard({ startup, onConfirm, onCancel, disabled }: {
+function FollowOnCard({ startup, onConfirm, disabled }: {
   startup: Startup;
   onConfirm: () => void;
-  onCancel: () => void;
   disabled: boolean;
 }) {
   const [confirming, setConfirming] = useState(false);
@@ -219,11 +218,10 @@ function FollowOnCard({ startup, onConfirm, onCancel, disabled }: {
 
 // ── 損切りカード ─────────────────────────────────────────────────
 
-function WriteOffCard({ startup, totalInvested, onConfirm, onCancel, disabled }: {
+function WriteOffCard({ startup, totalInvested, onConfirm, disabled }: {
   startup: Startup;
   totalInvested: number;
   onConfirm: () => void;
-  onCancel: () => void;
   disabled: boolean;
 }) {
   const [confirming, setConfirming] = useState(false);
@@ -426,7 +424,6 @@ export function DealIndividualPhase() {
                 key={startup.id}
                 startup={startup}
                 onConfirm={() => handleFollowOn(startup.id)}
-                onCancel={() => {}}
                 disabled={isOutOfActions || currentPlayer.remainingCapital < Math.round(startup.currentValuation * FOLLOW_INVESTMENT_RATE)}
               />
             ))}
@@ -450,7 +447,6 @@ export function DealIndividualPhase() {
                   startup={startup}
                   totalInvested={totalInvested}
                   onConfirm={() => handleWriteOff(startup.id)}
-                  onCancel={() => {}}
                   disabled={isOutOfActions}
                 />
               );
