@@ -454,3 +454,16 @@ export function hasSaveData(): boolean {
     return false;
   }
 }
+
+export function getSaveTimestamp(): string | null {
+  const raw = localStorage.getItem(SAVE_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as SaveEnvelope;
+    if (parsed.version !== SAVE_VERSION || !parsed.savedAt) return null;
+    const d = new Date(parsed.savedAt);
+    return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')} のデータ`;
+  } catch {
+    return null;
+  }
+}

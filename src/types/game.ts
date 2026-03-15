@@ -246,4 +246,4 @@ export type GameAction =
 
 // --- 画面遷移 ---
 
-export type Screen = 'title' | 'settings' | 'game' | 'result';
+export type Screen = 'title' | 'settings' | 'game' | 'result' | 'help';

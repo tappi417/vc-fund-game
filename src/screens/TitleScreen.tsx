@@ -1,4 +1,4 @@
-import { useGame, hasSaveData } from '../context/GameContext';
+import { useGame, hasSaveData, getSaveTimestamp } from '../context/GameContext';
 
 export function TitleScreen() {
   const { dispatch } = useGame();
@@ -28,13 +28,27 @@ export function TitleScreen() {
           </button>
 
           {canContinue && (
-            <button
-              onClick={() => dispatch({ type: 'NAVIGATE', screen: 'game' })}
-              className="w-full max-w-xs mx-auto block px-8 py-4 bg-slate-700 hover:bg-slate-600 text-white text-lg font-semibold rounded-xl transition-colors"
-            >
-              続きから
-            </button>
+            <div>
+              <button
+                onClick={() => dispatch({ type: 'NAVIGATE', screen: 'game' })}
+                className="w-full max-w-xs mx-auto block px-8 py-4 bg-slate-700 hover:bg-slate-600 text-white text-lg font-semibold rounded-xl transition-colors"
+              >
+                続きから
+              </button>
+              {getSaveTimestamp() && (
+                <p className="text-slate-500 text-xs text-center mt-1.5">
+                  {getSaveTimestamp()}
+                </p>
+              )}
+            </div>
           )}
+
+          <button
+            onClick={() => dispatch({ type: 'NAVIGATE', screen: 'help' })}
+            className="w-full max-w-xs mx-auto block px-8 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-sm font-semibold rounded-xl transition-colors border border-slate-700"
+          >
+            📖 ルールを確認
+          </button>
         </div>
 
         {/* フッター */}

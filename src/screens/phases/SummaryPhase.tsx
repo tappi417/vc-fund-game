@@ -1,7 +1,60 @@
 import { useGame } from '../../context/GameContext';
 import { formatCurrency } from '../../data/constants';
 import { calcUnrealizedValue } from '../../logic/gameEngine';
-import type { GrowthJudgmentResult } from '../../types/game';
+import type { GrowthJudgmentResult, GameState } from '../../types/game';
+
+function generateLearningMessages(game: GameState): string[] {
+  const msgs: string[] = [];
+  const results = game.currentGrowthResults;
+
+  // 1. 高ポテンシャル企業が倒産 → 運の要素
+  const highPotDeath = results.find(r => {
+    if (r.result !== 'death') return false;
+    const startup = game.allStartups.find(s => s.id === r.startupId);
+    return startup && startup.growthPotential >= 4;
+  });
+  if (highPotDeath) {
+    msgs.push('高ポテンシャルでも倒産することがあります。VC投資にはリスク分散が不可欠です。');
+  }
+
+  // 2. リード補正が結果の境界だった → リード投資の価値
+  const leadMattered = results.some(r =>
+    r.leadModifier > 0 &&
+    r.result === 'growth' &&
+    r.modifiedTotal - r.leadModifier <= 8
+  );
+  if (leadMattered) {
+    msgs.push('リード投資家のダイスボーナス（+1）が成長の分岐点になりました。リード投資には明確な価値があります。');
+  }
+
+  // 3. イベント補正が大きかった → 市場環境の重要性
+  if (msgs.length < 2) {
+    const eventImpact = results.some(r => Math.abs(r.eventModifier) >= 2);
+    if (eventImpact && game.currentEvent) {
+      msgs.push(`「${game.currentEvent.title}」が判定に大きく影響しました。市場環境はポートフォリオ全体に波及します。`);
+    }
+  }
+
+  // 4. ラウンド3以降で全員DPI < 1 → 後半戦への集中
+  if (msgs.length < 2 && game.currentRound >= 3) {
+    const allUnder1 = game.players.every(p =>
+      p.totalInvested === 0 || (p.realizedReturns + p.liquidationReturns) / p.totalInvested < 1
+    );
+    if (allUnder1) {
+      msgs.push('まだ誰もDPI 1xを達成していません。後半のExitに向けて有望な企業に集中投資しましょう。');
+    }
+  }
+
+  // 5. ブレイクアウト発生 → パワーロウ則
+  if (msgs.length < 2) {
+    const hasBreakout = results.some(r => r.result === 'breakout');
+    if (hasBreakout) {
+      msgs.push('ブレイクアウト！VCリターンは上位少数の大当たりで決まる「パワーロウ則」が働いています。');
+    }
+  }
+
+  return msgs.slice(0, 2);
+}
 import {
   LineChart,
   Line,
@@ -208,6 +261,27 @@ export function SummaryPhase() {
           </div>
         </section>
       )}
+
+      {/* 学習ポイント */}
+      {(() => {
+        const msgs = generateLearningMessages(game);
+        if (msgs.length === 0) return null;
+        return (
+          <section className="bg-indigo-900/20 rounded-xl p-5 border border-indigo-700/40">
+            <h3 className="text-indigo-400 text-xs font-medium uppercase tracking-wider mb-3">
+              💡 今ラウンドの学習ポイント
+            </h3>
+            <ul className="space-y-2">
+              {msgs.map((msg, i) => (
+                <li key={i} className="text-slate-300 text-sm flex gap-2">
+                  <span className="text-indigo-400 shrink-0">▸</span>
+                  {msg}
+                </li>
+              ))}
+            </ul>
+          </section>
+        );
+      })()}
 
       {/* 次ラウンドのプレビュー情報 */}
       {!isLastRound && (

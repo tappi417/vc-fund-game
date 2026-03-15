@@ -155,7 +155,66 @@ export const EVENT_CARDS: EventCard[] = [
     effects: [{ target: 'all', growthModifier: 0 }],
   },
 
-  // --- 追加イベント（バランス用） ---
+  // --- 規制（補完）---
+  {
+    id: 'regulation_saas',
+    title: 'データ独占規制',
+    description: 'クラウドサービスの独占的なデータ管理に規制が入る。SaaSセクターに逆風。',
+    category: 'regulation',
+    effects: [{ target: 'saas', growthModifier: -2 }],
+  },
+  {
+    id: 'regulation_cleantech',
+    title: '補助金削減',
+    description: '政府のエネルギー補助金が大幅削減。CleanTechスタートアップの収益モデルに打撃。',
+    category: 'regulation',
+    effects: [{ target: 'cleantech', growthModifier: -2 }],
+  },
+
+  // --- Exitウィンドウ（負方向）---
+  {
+    id: 'exit_03',
+    title: 'IPO市場凍結',
+    description: '株式市場の不安定化でIPOが相次いで延期。Exit環境が大幅に悪化。',
+    category: 'exit_window',
+    effects: [{ target: 'all', growthModifier: 0, exitModifier: -2 }],
+  },
+
+  // --- バブル（全体）---
+  {
+    id: 'bubble_all',
+    title: 'スタートアップ投資ブーム',
+    description: '機関投資家のリスクオンが加速。全セクターに資金が流入し、追い風となる。',
+    category: 'bubble',
+    effects: [{ target: 'all', growthModifier: +1 }],
+  },
+
+  // --- ブレイクスルー（Consumer/Fintech補完）---
+  {
+    id: 'breakthrough_consumer',
+    title: 'SNS新プラットフォーム台頭',
+    description: '新世代SNSが急成長し、Consumer向けサービスへの注目が一気に集まる。',
+    category: 'breakthrough',
+    effects: [{ target: 'consumer', growthModifier: +2 }],
+  },
+  {
+    id: 'breakthrough_fintech',
+    title: 'デジタル通貨普及',
+    description: '中央銀行デジタル通貨の実証実験が成功。Fintechインフラへの需要が急増。',
+    category: 'breakthrough',
+    effects: [{ target: 'fintech', growthModifier: +2 }],
+  },
+
+  // --- 冬（追加）---
+  {
+    id: 'winter_04',
+    title: '地政学リスク上昇',
+    description: '国際情勢の緊張が高まり、グローバルサプライチェーンが混乱。全社業績に影響。',
+    category: 'winter',
+    effects: [{ target: 'all', growthModifier: -1 }],
+  },
+
+  // --- 追加イベント（バランス用）---
   {
     id: 'neutral_01',
     title: '平穏な1年',

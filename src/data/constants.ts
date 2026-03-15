@@ -42,9 +42,9 @@ export const POTENTIAL_MODIFIER: Record<1 | 2 | 3 | 4 | 5, number> = {
 // --- ポテンシャル分布 ---
 
 export const POTENTIAL_DISTRIBUTION: { potential: 1 | 2 | 3 | 4 | 5; weight: number }[] = [
-  { potential: 1, weight: 40 },
+  { potential: 1, weight: 35 },
   { potential: 2, weight: 25 },
-  { potential: 3, weight: 20 },
+  { potential: 3, weight: 25 },
   { potential: 4, weight: 10 },
   { potential: 5, weight: 5 },
 ];
