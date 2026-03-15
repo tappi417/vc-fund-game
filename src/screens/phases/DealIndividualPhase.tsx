@@ -297,8 +297,9 @@ export function DealIndividualPhase() {
   const isOutOfActions = actionsLeft <= 0;
 
   // ── ポートフォリオ関連の導出 ──────────────────────────────────
-  // フォローオン対象: ステージ進行済みかつ保有中
+  // フォローオン対象: ステージ進行済み・未実施・保有中
   const followOnOpportunities = currentPlayer.portfolio
+    .filter(inv => !inv.followOnDoneThisRound)
     .map(inv => game.allStartups.find(s => s.id === inv.startupId))
     .filter((s): s is Startup => !!s && s.stageAdvancedThisRound && s.status !== 'dead' && s.currentStage !== 'exited');
 

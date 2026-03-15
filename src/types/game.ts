@@ -145,6 +145,7 @@ export interface Investment {
   rounds: InvestmentRound[];
   ownershipPercent: number;
   hasProRataRight: boolean; // リード投資家はPro-rata権あり（フォローオン優先権）
+  followOnDoneThisRound: boolean; // 今ラウンドにフォローオン実施済みか（1ラウンド1回制限）
 }
 
 // --- 入札（共有ディール競り）---

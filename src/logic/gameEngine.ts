@@ -521,6 +521,7 @@ export function executeLeadInvestment(
     rounds: [{ round: game.currentRound, amount, stage: startup.currentStage, valuationAtInvestment: startup.currentValuation }],
     ownershipPercent: ownership,
     hasProRataRight: true,
+    followOnDoneThisRound: false,
   };
 
   const updatedPlayer: Player = {
@@ -578,6 +579,7 @@ export function executeFollowInvestment(
       ...existing,
       rounds: [...existing.rounds, { round: game.currentRound, amount, stage: startup.currentStage, valuationAtInvestment: startup.currentValuation }],
       ownershipPercent: existing.ownershipPercent + ownership,
+      followOnDoneThisRound: true,
     };
     newPortfolio = player.portfolio.map((inv, i) => (i === existingIdx ? updatedInv : inv));
   } else {
@@ -587,6 +589,7 @@ export function executeFollowInvestment(
       rounds: [{ round: game.currentRound, amount, stage: startup.currentStage, valuationAtInvestment: startup.currentValuation }],
       ownershipPercent: ownership,
       hasProRataRight: false,
+      followOnDoneThisRound: true,
     }];
   }
 
@@ -718,7 +721,11 @@ export function advanceRound(game: GameState): GameState {
   const snapshot = takeRoundSnapshot(game);
   const nextRound = game.currentRound + 1;
 
-  const clearedPlayers = game.players.map(p => ({ ...p, handDeals: [] as DealCard[] }));
+  const clearedPlayers = game.players.map(p => ({
+    ...p,
+    handDeals: [] as DealCard[],
+    portfolio: p.portfolio.map(inv => ({ ...inv, followOnDoneThisRound: false })),
+  }));
   const resetStartups = game.allStartups.map(s => ({ ...s, stageAdvancedThisRound: false }));
 
   return {

@@ -15,17 +15,28 @@ import { DealIndividualPhase } from './phases/DealIndividualPhase';
 import { DealSharedPhase } from './phases/DealSharedPhase';
 import { SummaryPhase } from './phases/SummaryPhase';
 
-const PHASE_LABELS: Record<string, string> = {
-  management_fee: '管理報酬フェーズ',
-  market_event: '市場イベントフェーズ',
-  growth: '成長判定フェーズ',
-  player_transition: '交代準備',
-  deal_individual: 'ディールフェーズ',
-  deal_shared: '共有ディールフェーズ',
-  summary: 'ラウンドサマリー',
-  exit_judgment: 'Exit判定フェーズ',
-  final_settlement: '最終清算',
-  game_over: 'ゲーム終了',
+// フェーズステッパー定義（表示用の6ステップ）
+const PHASE_STEPS: { phase: string; label: string }[] = [
+  { phase: 'management_fee', label: '管理報酬' },
+  { phase: 'market_event',   label: 'イベント' },
+  { phase: 'growth',         label: '成長判定' },
+  { phase: 'deal_individual',label: '個別ディール' },
+  { phase: 'deal_shared',    label: '共有ディール' },
+  { phase: 'summary',        label: 'サマリー' },
+];
+
+// 実フェーズ → ステッパーインデックスのマッピング
+const PHASE_TO_STEP: Record<string, number> = {
+  management_fee: 0,
+  market_event: 1,
+  growth: 2,
+  exit_judgment: 2,
+  player_transition: 3,
+  deal_individual: 3,
+  deal_shared: 4,
+  summary: 5,
+  final_settlement: 5,
+  game_over: 5,
 };
 
 // Exit済み・死亡を除いた生存企業数
@@ -94,24 +105,23 @@ export function GameScreen() {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* ヘッダー */}
       <header className="bg-slate-800/80 backdrop-blur border-b border-slate-700 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <span className="text-indigo-400 font-bold text-lg">
+        <div className="max-w-7xl mx-auto px-4 py-2">
+          {/* 上段: ラウンド情報 + プレイヤー情報 */}
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-indigo-400 font-bold text-base">
               Year {game.currentRound} / {game.settings.totalRounds}
             </span>
-            <span className="text-slate-500">|</span>
-            <span className="text-slate-300 text-sm">
-              {PHASE_LABELS[game.currentPhase] ?? game.currentPhase}
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="text-amber-400 font-semibold text-sm">
+                {currentPlayer.fundName}
+              </span>
+              <span className="text-emerald-400 text-sm font-semibold">
+                {formatCurrency(currentPlayer.remainingCapital)}
+              </span>
+            </div>
           </div>
-          <div className="flex items-center gap-4">
-            <span className="text-amber-400 font-semibold text-sm">
-              {currentPlayer.fundName}
-            </span>
-            <span className="text-emerald-400 text-sm font-semibold">
-              {formatCurrency(currentPlayer.remainingCapital)}
-            </span>
-          </div>
+          {/* 下段: フェーズステッパー */}
+          <PhaseStepIndicator currentPhase={game.currentPhase} />
         </div>
       </header>
 
@@ -256,6 +266,48 @@ function PortfolioMiniRow({ investment, startup }: { investment: Investment; sta
           現在 {formatCurrency(currentValue)}
         </span>
       </div>
+    </div>
+  );
+}
+
+// ── フェーズステッパー ──
+
+function PhaseStepIndicator({ currentPhase }: { currentPhase: string }) {
+  const activeIdx = PHASE_TO_STEP[currentPhase] ?? -1;
+
+  return (
+    <div className="flex items-center gap-0">
+      {PHASE_STEPS.map((step, i) => {
+        const isDone    = i < activeIdx;
+        const isActive  = i === activeIdx;
+        const isFuture  = i > activeIdx;
+        return (
+          <div key={step.phase} className="flex items-center">
+            {/* ステップノード */}
+            <div className="flex flex-col items-center">
+              <div className={`w-2 h-2 rounded-full transition-colors ${
+                isDone   ? 'bg-indigo-500' :
+                isActive ? 'bg-indigo-400 ring-2 ring-indigo-400/40' :
+                           'bg-slate-600'
+              }`} />
+              <span className={`text-[10px] mt-0.5 whitespace-nowrap transition-colors ${
+                isDone   ? 'text-indigo-500' :
+                isActive ? 'text-indigo-300 font-semibold' :
+                isFuture ? 'text-slate-600' :
+                           'text-slate-500'
+              }`}>
+                {step.label}
+              </span>
+            </div>
+            {/* コネクター（最後以外） */}
+            {i < PHASE_STEPS.length - 1 && (
+              <div className={`h-px w-6 sm:w-10 mx-1 mb-3 transition-colors ${
+                i < activeIdx ? 'bg-indigo-500' : 'bg-slate-700'
+              }`} />
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
