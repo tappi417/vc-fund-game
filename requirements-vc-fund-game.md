@@ -350,19 +350,29 @@ Seed → Series A → Series B → Series C → Exit（IPO/M&A/メガIPO）
 GameScreen はフェーズルーターとして機能し、右サイドバーに常時以下を表示する。
 
 ```
-┌──────────────────────────────────────────────────────┐
-│ [フェーズコンテンツ（左）] [サイドバー（右）]              │
-│                            ┌─ ファンド状況 ──────────┐ │
-│  ManagementFeePhase        │ Year 3 / 10             │ │
-│  MarketEventPhase          │ Phase: ディールフェーズ  │ │
-│  GrowthPhase               │ Player: Fund Alpha      │ │
-│  PlayerTransitionPhase     │                         │ │
-│  DealIndividualPhase       │ 残り資金: 28億円          │ │
-│  DealSharedPhase           │ 投資先: 8社              │ │
-│  SummaryPhase              │ 残りアクション: 3         │ │
-│                            └──────────────────────────┘ │
-└──────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│ ヘッダー（sticky）                                        │
+│  Year 3/10  [管理報酬]─[イベント]─[成長判定]─●[個別]─...  │
+│                             Fund Alpha  28億円  ☰        │
+├────────────────────────────────────────────────────────── │
+│ [フェーズコンテンツ（左3/4）]   [サイドバー（右1/4）]       │
+│                                ┌─ 市場イベント ─────────┐ │
+│  ManagementFeePhase            │ ○○イベント             │ │
+│  MarketEventPhase              ├─ ファンドサマリー ─────┤ │
+│  GrowthPhase                   │ 残り資金: 28億円        │ │
+│  PlayerTransitionPhase         │ 投資済み / 未実現価値   │ │
+│  DealIndividualPhase           │ 暫定DPI                │ │
+│  DealSharedPhase               ├─ ポートフォリオ ───────┤ │
+│  SummaryPhase                  │ 各投資先の倍率・状態    │ │
+│                                └──────────────────────┘ │
+└──────────────────────────────────────────────────────────┘
 ```
+
+**ヘッダー追加仕様** ※[変更21]
+- 6段階フェーズステッパー（管理報酬/イベント/成長判定/個別ディール/共有ディール/サマリー）をヘッダー下段に表示
+- 完了済み: インジゴ色、現在: ハイライト+リング、未来: グレーアウト
+- `player_transition` → 個別ディールと同一ステップ点灯、`exit_judgment` → 成長判定と同一ステップ点灯
+- 右端に「☰」ゲームメニューボタン → セーブ破棄してタイトルへの確認モーダル ※[変更23]
 
 ### 4.3 ディールカード表示
 
@@ -396,8 +406,9 @@ GameScreen はフェーズルーターとして機能し、右サイドバーに
 
 - 最終DPI順位の表示
 - DPI推移グラフ（ラウンドごとの各ファンドのDPI変化）
-- パワーロウの可視化：各プレイヤーのリターン分布（「あなたのリターンの80%はこの1社から生まれました」等）
-- 投資の学びポイント（自動生成メッセージ）
+- **ファンド別パワーロウ分析** ※[変更25]: 各ファンドの投資先をリターン貢献度降順で表示。インラインバーで集中度を可視化。パワーロウ判定バッジ（「パワーロウ顕著」/「やや集中」/「分散型」）
+- リターン分布グラフ（Exit済みスタートアップの exitValuation 棒グラフ）
+- 全スタートアップ一覧（バリュエーション降順）
 
 ---
 
@@ -552,6 +563,7 @@ interface Investment {
   rounds: InvestmentRound[];         // 投資履歴（初回＋フォローオン）
   ownershipPercent: number;          // 現在の持分比率
   hasProRataRight: boolean;          // リード投資家はPro-rata権あり（フォローオン優先権）
+  followOnDoneThisRound: boolean;    // 今ラウンドにフォローオン実施済みか（1回制限） ※[変更21]
 }
 
 // --- 入札（共有ディール競り）---      ※[変更9] 新規追加
@@ -1109,6 +1121,74 @@ interface SaveEnvelope {
 5. ブレイクアウト発生 → 「パワーロウ則」解説
 
 **影響ファイル**: `src/screens/phases/SummaryPhase.tsx`
+
+---
+
+### [変更25] result画面にファンド別パワーロウ分析セクション追加 — commit `80162e8`
+
+各ファンドが「少数の投資先にリターンが集中しているか」を可視化する新セクションを追加。
+
+- 投資先をリターン貢献度（%）降順に表示、インラインバーで視覚化
+- パワーロウ判定バッジ: 上位1社 ≥50% → 「パワーロウ顕著」、≥30% → 「やや集中」、それ以下 → 「分散型」
+- 各投資先の倍率（0x〜）を色分け表示（3x以上: 黄、1x以上: 緑、0-1x: 橙、0x: 赤）
+- DPI推移グラフとリターン分布グラフの間に配置
+
+**影響ファイル**: `src/screens/ResultScreen.tsx`
+
+---
+
+### [変更24] game_overフェーズ時のresult画面への自動リダイレクト — commit `1db1a93`
+
+**問題**: セーブデータが `game_over` フェーズの状態でロードされると「未実装フェーズ: game_over」と表示される。
+
+**原因**: `appReducer` の `DISPATCH_GAME` ケース経由でのみ `result` 画面に遷移していたため、セーブロード時（`appReducer` が走らない）は `game` 画面に留まっていた。
+
+**修正**: `GameScreen` に `useEffect` を追加。`game_over` フェーズ検出時に即 `result` 画面へリダイレクト。
+
+**影響ファイル**: `src/screens/GameScreen.tsx`
+
+---
+
+### [変更23] ゲーム終了メニューをヘッダーに追加 — commit `ded6dfc`
+
+- ヘッダー右端に「☰」ボタンを追加
+- クリックで確認モーダル表示（「セーブデータが削除されタイトルへ戻ります」）
+- 「終了する」: `clearSaveData()` + `NAVIGATE: title`、「キャンセル」: モーダルを閉じる
+
+**影響ファイル**: `src/screens/GameScreen.tsx`
+
+---
+
+### [変更22] ステータス表示テキストを「清算」に統一 — commit `b4db46f`
+
+`dead` ステータスの表示が「倒産」と「死亡」で混在していたため「清算」に統一。
+
+| ファイル | 変更内容 |
+|---------|---------|
+| `src/data/constants.ts` | `STAGE_LABELS.dead: '倒産'` → `'清算'`、`STATUS_LABELS.dead: '死亡'` → `'清算'` |
+| `src/screens/phases/GrowthPhase.tsx` | `GROWTH_LABELS.death: '倒産'` → `'清算'` |
+| `src/screens/phases/SummaryPhase.tsx` | `GROWTH_LABELS.death` + 学習メッセージの「倒産」 → `'清算'` |
+| `src/screens/ResultScreen.tsx` | ステータス判定の `'倒産'` → `'清算'` |
+| `src/screens/HelpScreen.tsx` | 説明文・判定テーブルの「倒産」 → `'清算'` |
+
+**影響ファイル**: 上記5ファイル
+
+---
+
+### [変更21] フェーズステッパーをヘッダーに追加 + フォローオン1回制限 — commit `bbd3c1c`
+
+**フェーズステッパー**:
+- ヘッダー下段に6段階ステッパーを追加（管理報酬/イベント/成長判定/個別ディール/共有ディール/サマリー）
+- `player_transition` は「個別ディール」、`exit_judgment` は「成長判定」ステップを点灯
+- 完了済み: インジゴ色、現在: ハイライト+リング、未来: グレーアウト
+
+**フォローオン1回制限**:
+- `Investment` 型に `followOnDoneThisRound: boolean` フィールドを追加
+- `executeFollowInvestment()` でフォローオン実行後に `followOnDoneThisRound = true` をセット
+- `advanceRound()` でラウンド開始時に全投資の `followOnDoneThisRound = false` をリセット
+- `DealIndividualPhase` の `followOnOpportunities` フィルターに `!inv.followOnDoneThisRound` を追加
+
+**影響ファイル**: `src/types/game.ts`, `src/logic/gameEngine.ts`, `src/screens/phases/DealIndividualPhase.tsx`, `src/screens/GameScreen.tsx`
 
 ---
 
