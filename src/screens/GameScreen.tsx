@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useGame, clearSaveData } from '../context/GameContext';
 import {
   formatCurrency,
@@ -65,6 +65,13 @@ export function GameScreen() {
   const { state, dispatch } = useGame();
   const game = state.game;
   const [showExitModal, setShowExitModal] = useState(false);
+
+  // セーブロード時に game_over フェーズだった場合は result 画面へ
+  useEffect(() => {
+    if (game?.currentPhase === 'game_over') {
+      dispatch({ type: 'NAVIGATE', screen: 'result' });
+    }
+  }, [game?.currentPhase, dispatch]);
 
   if (!game) {
     return (
