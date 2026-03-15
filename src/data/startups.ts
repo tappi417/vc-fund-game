@@ -16,6 +16,8 @@ export const STARTUP_TEMPLATES: StartupTemplate[] = [
   { name: 'DocuForce', sector: 'saas' },
   { name: 'TeamPulse', sector: 'saas' },
   { name: 'ApiNest', sector: 'saas' },
+  { name: 'SecureMesh', sector: 'saas' },   // サイバーセキュリティ運用SaaS
+  { name: 'HarborOS', sector: 'saas' },     // 港湾・物流DXプラットフォーム
 
   // Fintech
   { name: 'PayBridge', sector: 'fintech' },
@@ -26,6 +28,8 @@ export const STARTUP_TEMPLATES: StartupTemplate[] = [
   { name: 'InsurTech X', sector: 'fintech' },
   { name: 'CryptoBase', sector: 'fintech' },
   { name: 'WealthPilot', sector: 'fintech' },
+  { name: 'GXBond', sector: 'fintech' },    // GX債・グリーン金融プラットフォーム
+  { name: 'TradeFi', sector: 'fintech' },   // 貿易金融DX（サプライチェーンファイナンス）
 
   // HealthTech
   { name: 'MediScan', sector: 'healthtech' },
@@ -36,6 +40,8 @@ export const STARTUP_TEMPLATES: StartupTemplate[] = [
   { name: 'BioNova', sector: 'healthtech' },
   { name: 'HealthMesh', sector: 'healthtech' },
   { name: 'MindCare', sector: 'healthtech' },
+  { name: 'SynthLabs', sector: 'healthtech' }, // 合成生物学・バイオファウンドリ
+  { name: 'CureForge', sector: 'healthtech' }, // AI創薬・先端医療プラットフォーム
 
   // DeepTech
   { name: 'QuantumLeap', sector: 'deeptech' },
@@ -46,6 +52,8 @@ export const STARTUP_TEMPLATES: StartupTemplate[] = [
   { name: 'OrbitalTech', sector: 'deeptech' },
   { name: 'NanoSys', sector: 'deeptech' },
   { name: 'CyberMind', sector: 'deeptech' },
+  { name: 'QuantumShield', sector: 'deeptech' }, // 量子暗号・量子セキュリティ
+  { name: 'SpaceCore', sector: 'deeptech' },     // 小型衛星・宇宙輸送サービス
 
   // Consumer
   { name: 'FoodBox', sector: 'consumer' },
@@ -56,6 +64,8 @@ export const STARTUP_TEMPLATES: StartupTemplate[] = [
   { name: 'FitLife', sector: 'consumer' },
   { name: 'LearnUp', sector: 'consumer' },
   { name: 'SocialBuzz', sector: 'consumer' },
+  { name: 'AltBite', sector: 'consumer' },     // 代替タンパク・フードテック
+  { name: 'AnimaVerse', sector: 'consumer' },  // 日本発IPコンテンツ×メタバース
 
   // CleanTech
   { name: 'SolarGrid', sector: 'cleantech' },
@@ -66,6 +76,8 @@ export const STARTUP_TEMPLATES: StartupTemplate[] = [
   { name: 'EcoCharge', sector: 'cleantech' },
   { name: 'BioFuel X', sector: 'cleantech' },
   { name: 'GridStore', sector: 'cleantech' },
+  { name: 'FusionGrid', sector: 'cleantech' }, // フュージョンエネルギー商用化
+  { name: 'SeaForce', sector: 'cleantech' },   // 洋上風力・海洋エネルギー
 ];
 
 // Web Crypto API ベースの乱数（Math.random() の代わりに使用）
