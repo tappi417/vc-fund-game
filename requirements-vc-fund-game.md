@@ -106,9 +106,9 @@ VC投資では、ファンドリターンの大部分が少数の大成功案件
 
 | 成長ポテンシャル | 割合 | 最終的な結末の傾向 |
 |----------------|------|------------------|
-| ★1（失敗） | 40% | 投資額の0〜0.2x回収 |
+| ★1（失敗） | 35% | 投資額の0〜0.2x回収 ※[変更16] |
 | ★2（苦戦） | 25% | 投資額の0.5〜1x回収 |
-| ★3（普通） | 20% | 投資額の1〜3x回収 |
+| ★3（普通） | 25% | 投資額の1〜3x回収 ※[変更16] |
 | ★4（成功） | 10% | 投資額の5〜10x回収 |
 | ★5（大成功） | 5% | 投資額の20〜50x回収（ユニコーン） |
 
@@ -238,7 +238,7 @@ Seed → Series A → Series B → Series C → Exit（IPO/M&A/メガIPO）
 
 ### 3.8 イベントカード（市場環境）
 
-各ラウンド開始時に1枚公開。セクターや市場全体に影響する（全23枚）。
+各ラウンド開始時に1枚公開。セクターや市場全体に影響する（全30枚 ※[変更17]）。
 
 | カテゴリ | 例 | 効果 |
 |----------|-----|------|
@@ -337,12 +337,11 @@ Seed → Series A → Series B → Series C → Exit（IPO/M&A/メガIPO）
 
 | 画面ID | 画面名 | 説明 |
 |--------|--------|------|
-| `title` | タイトル画面 | ゲーム名、「新規ゲーム」「続きから」 |
+| `title` | タイトル画面 | ゲーム名、「新規ゲーム」「続きから」「ルールを確認」 |
 | `settings` | ゲーム設定画面 | プレイヤー人数（2-6）、ファンド名入力、運用年数・ファンドサイズ設定 |
 | `game` | メインゲーム画面 | フェーズルーターとしてのGameScreen。サイドバー常時表示 |
 | `result` | ゲーム結果画面 | 最終順位、DPI推移グラフ、パワーロウの可視化、学習ポイント |
-
-> **実装ノート**: ルール説明画面は Phase 5 スコープ。
+| `help` | ルール説明画面 | 4タブ構成（ゲームの目的/フェーズの流れ/投資のしかた/判定テーブル） ※[変更18] |
 
 ### 4.2 メインゲーム画面（GameScreen）構成
 
@@ -652,7 +651,7 @@ type GameAction =
 
 // --- 画面遷移 ---
 
-type Screen = 'title' | 'settings' | 'game' | 'result';
+type Screen = 'title' | 'settings' | 'game' | 'result' | 'help'; // ※[変更18]
 ```
 
 ---
@@ -730,7 +729,7 @@ src/
   data/
     constants.ts         - ゲームパラメータ、判定テーブル、formatCurrency
     startups.ts          - 48スタートアップテンプレート + ヒント生成ロジック
-    events.ts            - 23枚のイベントカード定義
+    events.ts            - 30枚のイベントカード定義 ※[変更17]
     deckBuilder.ts       - Web Crypto APIを使ったデッキ生成
   logic/
     gameEngine.ts        - 純粋関数のゲームロジック（UIに非依存）
@@ -741,6 +740,7 @@ src/
     SettingsScreen.tsx
     GameScreen.tsx       - フェーズルーター + サイドバー
     ResultScreen.tsx
+    HelpScreen.tsx       - ルール説明画面（4タブ） ※[変更18]
     phases/
       ManagementFeePhase.tsx
       MarketEventPhase.tsx
@@ -823,29 +823,28 @@ interface SaveEnvelope {
 - `DECLINE_DEAL`（手札パス）/ `WRITE_OFF`（ポートフォリオ損切り）分離
 - localStorage セーブ/ロード（`SaveEnvelope` + バージョン管理）
 
-### Phase 3: 駆け引き要素 ⬜ 未着手
+### Phase 3: 駆け引き要素 ✅ 完了 — commit `8ead84b`
 
-- 共有ディールの競りフェーズ強化（バリュエーション入札UI）
-- リード投資 vs フォロー投資の分岐強化
-- フォローオン投資UIの改善
-- 損切り（ライトオフ）UIの改善
+- 共有ディールの4段階競りフェーズ（バリュエーション入札UI）
+  - 挙手 → 入札 → 結果確認 → リード/フォロー確定 の4ステップフロー
+- フォローオン投資UIの改善（ポートフォリオ一覧からワンクリック追加投資）
+- 損切り（ライトオフ）UIの改善（DealIndividualPhaseから直接実行）
 
-### Phase 4: 演出とUX ⬜ 未着手
+### Phase 4: 演出とUX ✅ 完了
 
-- ダイスロールのアニメーション
-- スタートアップの成長/死亡の演出
-- DPI推移グラフ（Recharts）
-- パワーロウの可視化（結果画面）
-- イベントカードの演出
+- ダイスロールのアニメーション（GrowthPhase）
+- スタートアップの成長/死亡の演出（アイコン・色分けカード）
+- DPI推移グラフ（Recharts）— ResultScreen
+- パワーロウの可視化（Exit分布、投資倍率ランキング）— ResultScreen
+- イベントカードの演出（MarketEventPhase）
 
-### Phase 5: ブラッシュアップ ⬜ 未着手
+### Phase 5: ブラッシュアップ ✅ 完了 — commit `c166ad1`
 
-- ディールカード・イベントカードのバリエーション追加
-- ゲームバランスの調整（パラメータチューニング）
-- ルール説明画面
-- 学習ポイントの自動生成メッセージ
-- セーブ/ロード機能の改善
-- レスポンシブ対応の最終調整
+- イベントカードのバリエーション追加（23枚 → 30枚） ※[変更17]
+- ゲームバランス調整（ポテンシャル分布微調整） ※[変更16]
+- ルール説明画面（HelpScreen）— 4タブ構成 ※[変更18]
+- SummaryPhaseに学習ポイント自動生成メッセージ追加 ※[変更19]
+- セーブ日時表示（TitleScreenの「続きから」ボタン下部）
 
 ---
 
@@ -862,17 +861,18 @@ interface SaveEnvelope {
 | Consumer | FoodBox, StyleMatch, TripCraft + 5社 |
 | CleanTech | SolarGrid, GreenDrive, CarbonZero + 5社 |
 
-### イベントカード（23枚）
+### イベントカード（30枚 ※[変更17]）
 
 | カテゴリ | 枚数 |
 |---------|------|
-| バブル | 4枚（SaaS, Fintech, Consumer, CleanTech） |
-| 冬の時代 | 3枚 |
-| 規制 | 4枚（各セクター） |
-| ブレイクスルー | 4枚（各セクター） |
-| Exit環境 | 3枚 |
-| ブラックスワン | 3枚 |
+| バブル | 6枚（SaaS, Fintech, Consumer, CleanTech, HealthTech, 全体） |
+| 冬の時代 | 4枚 |
+| 規制 | 6枚（全セクター） |
+| ブレイクスルー | 6枚（全セクター） |
+| Exit環境 | 3枚（+IPO凍結を追加） |
+| ブラックスワン | 2枚 |
 | LP圧力 | 2枚 |
+| 平穏 | 1枚 |
 
 ---
 
@@ -1050,6 +1050,63 @@ interface SaveEnvelope {
 **理由**: テスタビリティ向上、`gameReducer` の見通し改善、副作用の明示化
 
 **影響ファイル**: `src/logic/gameEngine.ts`（新規）, `src/context/GameContext.tsx`
+
+---
+
+### [変更16] ポテンシャル分布のバランス調整 — Phase 5, commit `c166ad1`
+
+**変更前**: ★1: 40%, ★3: 20%
+**変更後**: ★1: 35%, ★3: 25%
+
+**理由**: 初心者プレイヤーが大半の案件で即倒産するとゲームへの親しみが低下するため、最低ポテンシャルの割合を微減し、中程度ポテンシャルを増加。パワーロウの本質は維持しつつ、初プレイでも「勝ち筋」を感じやすくする。
+
+**影響ファイル**: `src/data/constants.ts` (`POTENTIAL_DISTRIBUTION`)
+
+---
+
+### [変更17] イベントカード追加（23枚 → 30枚）— Phase 5, commit `c166ad1`
+
+追加した7枚:
+
+| ID | タイトル | 効果 |
+|----|---------|------|
+| `regulation_saas` | データ独占規制 | SaaS 成長判定 -2 |
+| `regulation_cleantech` | 補助金削減 | CleanTech 成長判定 -2 |
+| `exit_03` | IPO市場凍結 | Exit判定 -2 |
+| `bubble_all` | スタートアップ投資ブーム | 全セクター成長判定 +1 |
+| `breakthrough_consumer` | SNS新プラットフォーム台頭 | Consumer 成長判定 +2 |
+| `breakthrough_fintech` | デジタル通貨普及 | Fintech 成長判定 +2 |
+| `winter_04` | 地政学リスク上昇 | 全セクター成長判定 -1 |
+
+**理由**: 10ラウンドで同じカードが繰り返し出ることを防ぎリプレイ性を高める。規制/ブレイクスルー/Exitウィンドウの全セクター対称性も改善。
+
+**影響ファイル**: `src/data/events.ts`
+
+---
+
+### [変更18] ルール説明画面（HelpScreen）の追加 — Phase 5, commit `c166ad1`
+
+**追加**: `src/screens/HelpScreen.tsx`（新規）
+- 4タブ構成: ゲームの目的 / フェーズの流れ / 投資のしかた / 判定テーブル
+- TitleScreenに「📖 ルールを確認」ボタン追加
+- `Screen` 型に `'help'` を追加
+
+**影響ファイル**: `src/types/game.ts`, `src/App.tsx`, `src/screens/HelpScreen.tsx`, `src/screens/TitleScreen.tsx`
+
+---
+
+### [変更19] SummaryPhaseへの学習ポイント自動生成メッセージ追加 — Phase 5, commit `c166ad1`
+
+**追加**: `generateLearningMessages(game: GameState): string[]` 関数
+
+ラウンド結果から最大2件のメッセージを自動生成（優先度順）:
+1. 高ポテンシャル（★4-5）企業が倒産 → 「運の要素」解説
+2. リード補正が成否の分岐点 → 「リード投資の価値」解説
+3. イベント補正 ±2 以上 → 「市場環境の波及」解説
+4. ラウンド3以降で全員DPI < 1 → 「後半戦への集中投資」促進
+5. ブレイクアウト発生 → 「パワーロウ則」解説
+
+**影響ファイル**: `src/screens/phases/SummaryPhase.tsx`
 
 ---
 
