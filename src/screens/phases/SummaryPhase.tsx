@@ -14,7 +14,7 @@ function generateLearningMessages(game: GameState): string[] {
     return startup && startup.growthPotential >= 4;
   });
   if (highPotDeath) {
-    msgs.push('高ポテンシャルでも倒産することがあります。VC投資にはリスク分散が不可欠です。');
+    msgs.push('高ポテンシャルでも清算になることがあります。VC投資にはリスク分散が不可欠です。');
   }
 
   // 2. リード補正が結果の境界だった → リード投資の価値
@@ -73,7 +73,7 @@ function calcDPI(realizedReturns: number, liquidationReturns: number, totalInves
 }
 
 const GROWTH_LABELS: Record<string, string> = {
-  death: '倒産',
+  death: '清算',
   struggling: '苦戦',
   stable: '横ばい',
   growth: '成長',

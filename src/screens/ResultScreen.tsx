@@ -237,7 +237,7 @@ export function ResultScreen() {
                   s.status === 'exited_mega_ipo' ? 'メガIPO' :
                   s.status === 'exited_ipo' ? 'IPO' :
                   s.status === 'exited_ma' ? 'M&A Exit' :
-                  s.status === 'dead' ? '倒産' :
+                  s.status === 'dead' ? '清算' :
                   s.status === 'struggling' ? '苦戦' :
                   s.status === 'stable' ? '横ばい' :
                   '成長中';

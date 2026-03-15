@@ -4,7 +4,7 @@ import { formatCurrency, SECTOR_LABELS, STAGE_LABELS } from '../../data/constant
 import type { GrowthJudgmentResult } from '../../types/game';
 
 const GROWTH_LABELS: Record<string, string> = {
-  death: '倒産',
+  death: '清算',
   struggling: '苦戦',
   stable: '横ばい',
   growth: '成長',

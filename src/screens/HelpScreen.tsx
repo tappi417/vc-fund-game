@@ -183,7 +183,7 @@ function InvestmentTab() {
             <div className="text-red-400 font-semibold text-sm mb-1">↓ 損切り（Write-off）</div>
             <p className="text-slate-300 text-xs leading-relaxed">
               「苦戦中」の保有企業を損切り。投資額は全損（回収なし）。
-              倒産リスクを回避し、ポートフォリオを整理できます。アクションを1消費。
+              清算リスクを回避し、ポートフォリオを整理できます。アクションを1消費。
             </p>
           </div>
         </div>
@@ -218,7 +218,7 @@ function TablesTab() {
           修正値 = ダイス合計 + ポテンシャル補正 + リード補正 + イベント補正
         </p>
         <div className="space-y-0 mb-4">
-          <TableRow range="≤ 3" result="倒産（Dead）" color="text-red-400" />
+          <TableRow range="≤ 3" result="清算（Dead）" color="text-red-400" />
           <TableRow range="4〜5" result="苦戦中（Struggling）" color="text-amber-400" />
           <TableRow range="6〜8" result="横ばい（Stable）" color="text-slate-300" />
           <TableRow range="9〜10" result="成長（Growth）" color="text-emerald-400" />

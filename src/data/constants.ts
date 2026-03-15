@@ -126,7 +126,7 @@ export const STAGE_LABELS: Record<string, string> = {
   series_b: 'Series B',
   series_c: 'Series C',
   exited: 'Exit済み',
-  dead: '倒産',
+  dead: '清算',
 };
 
 // --- ステータス表示名 ---
@@ -135,7 +135,7 @@ export const STATUS_LABELS: Record<string, string> = {
   growing: '成長中',
   stable: '横ばい',
   struggling: '苦戦中',
-  dead: '死亡',
+  dead: '清算',
   exited_ma: 'M&A Exit',
   exited_ipo: 'IPO Exit',
   exited_mega_ipo: 'メガIPO Exit',
