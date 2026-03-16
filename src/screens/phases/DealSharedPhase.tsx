@@ -106,7 +106,7 @@ export function DealSharedPhase() {
   if (pendingDeals.length === 0 && step === 'interest') {
     return (
       <div className="flex flex-col items-center justify-center min-h-[40vh]">
-        <div className="bg-slate-800/60 rounded-2xl p-8 border border-slate-700 w-full max-w-md text-center">
+        <div className="bg-slate-800/60 rounded-2xl p-8 border border-slate-700 w-full text-center">
           <h2 className="text-slate-400 text-xs font-medium uppercase tracking-wider mb-4">
             共有ディールフェーズ
           </h2>
@@ -301,8 +301,8 @@ export function DealSharedPhase() {
 
   // ── レンダリング ─────────────────────────────────────────────
   return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh]">
-      <div className="bg-slate-800/60 rounded-2xl p-8 border border-slate-700 w-full max-w-lg">
+    <div>
+      <div className="bg-slate-800/60 rounded-2xl p-8 border border-slate-700 w-full">
         {/* ヘッダー */}
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-slate-400 text-xs font-medium uppercase tracking-wider">

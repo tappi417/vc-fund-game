@@ -16,6 +16,9 @@ import { DealIndividualPhase } from './phases/DealIndividualPhase';
 import { DealSharedPhase } from './phases/DealSharedPhase';
 import { SummaryPhase } from './phases/SummaryPhase';
 
+// プレイヤーカラー（最大6人）
+const PLAYER_COLORS_HEX = ['#6366f1', '#f59e0b', '#10b981', '#f43f5e', '#8b5cf6', '#06b6d4'];
+
 // フェーズステッパー定義（表示用の6ステップ）
 const PHASE_STEPS: { phase: string; label: string }[] = [
   { phase: 'management_fee', label: '管理報酬' },
@@ -90,6 +93,8 @@ export function GameScreen() {
   }
 
   const currentPlayer = game.players[game.currentPlayerIndex];
+  const currentPlayerIdx = game.players.findIndex(p => p.id === currentPlayer.id);
+  const playerColor = PLAYER_COLORS_HEX[currentPlayerIdx % PLAYER_COLORS_HEX.length];
 
   // フェーズコンポーネントのルーティング
   const PhaseComponent = (() => {
@@ -121,7 +126,7 @@ export function GameScreen() {
               Year {game.currentRound} / {game.settings.totalRounds}
             </span>
             <div className="flex items-center gap-3">
-              <span className="text-amber-400 font-semibold text-sm">
+              <span className="font-semibold text-sm" style={{ color: playerColor }}>
                 {currentPlayer.fundName}
               </span>
               <span className="text-emerald-400 text-sm font-semibold">
@@ -129,7 +134,7 @@ export function GameScreen() {
               </span>
               <button
                 onClick={() => setShowExitModal(true)}
-                className="text-slate-500 hover:text-slate-300 transition-colors p-1 rounded"
+                className="text-slate-400 hover:text-white transition-colors p-1 rounded text-base"
                 title="ゲームメニュー"
               >
                 ☰
@@ -189,12 +194,18 @@ export function GameScreen() {
               )}
             </section>
 
-            {/* ファンドサマリー */}
-            <section className="bg-slate-800/60 rounded-xl p-4 border border-slate-700">
-              <h3 className="text-slate-400 text-xs font-medium uppercase tracking-wider mb-3">
+            {/* ファンドカード（サマリー＋ポートフォリオ統合） */}
+            <section
+              className="bg-slate-800/60 rounded-xl p-4 border border-slate-700 border-l-[3px]"
+              style={{ borderLeftColor: playerColor }}
+            >
+              {/* ファンド名（プレイヤーカラー） */}
+              <h3 className="font-bold text-sm mb-3" style={{ color: playerColor }}>
                 {currentPlayer.fundName}
               </h3>
-              <div className="space-y-2 text-sm">
+
+              {/* サマリー統計 */}
+              <div className="space-y-1.5 text-sm">
                 <div className="flex justify-between">
                   <span className="text-slate-400">残り資金</span>
                   <span className="text-emerald-400 font-semibold">{formatCurrency(currentPlayer.remainingCapital)}</span>
@@ -207,59 +218,51 @@ export function GameScreen() {
                   <span className="text-slate-400">未実現価値</span>
                   <span className="text-slate-300">{formatCurrency(calcUnrealizedValue(currentPlayer, game.allStartups))}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">投資先</span>
-                  <span className="text-white">
-                    {currentPlayer.portfolio.length}社
-                    <span className="text-slate-500 text-xs ml-1">
-                      （生存{aliveCount(currentPlayer, game.allStartups)}）
-                    </span>
-                  </span>
-                </div>
-                <div className="flex justify-between border-t border-slate-700 pt-2 mt-2">
+                <div className="flex justify-between border-t border-slate-700 pt-1.5 mt-1">
                   <span className="text-slate-400">暫定DPI</span>
                   <span className={`font-bold ${calcDPI(currentPlayer) >= 1 ? 'text-emerald-400' : 'text-amber-400'}`}>
                     {calcDPI(currentPlayer).toFixed(2)}x
                   </span>
                 </div>
               </div>
-            </section>
 
-            {/* ポートフォリオ一覧（折りたたみ式） */}
-            {currentPlayer.portfolio.length > 0 && (
-              <section className="bg-slate-800/60 rounded-xl p-4 border border-slate-700">
-                <h3 className="text-slate-400 text-xs font-medium uppercase tracking-wider mb-3">
-                  ポートフォリオ
-                </h3>
-                <div className="space-y-2">
-                  {[...currentPlayer.portfolio]
-                    .map(inv => {
-                      const startup = game.allStartups.find(s => s.id === inv.startupId);
-                      if (!startup) return null;
-                      const isExited = EXITED_STATUSES.has(startup.status);
-                      const isDead = startup.status === 'dead';
-                      const terminated = isExited || isDead;
-                      const costBasis = inv.rounds.reduce((s, r) => s + r.amount, 0);
-                      const currentValue = isExited
-                        ? (startup.exitValuation ?? startup.currentValuation) * (inv.ownershipPercent / 100)
-                        : isDead ? 0
-                        : startup.currentValuation * (inv.ownershipPercent / 100);
-                      const multiple = costBasis > 0 ? currentValue / costBasis : 0;
-                      return { inv, startup, terminated, multiple };
-                    })
-                    .filter((x): x is NonNullable<typeof x> => x !== null)
-                    .sort((a, b) => {
-                      // 清算済み・死亡を末尾へ
-                      if (a.terminated !== b.terminated) return a.terminated ? 1 : -1;
-                      // 同グループ内は倍率降順
-                      return b.multiple - a.multiple;
-                    })
-                    .map(({ inv, startup }) => (
-                      <PortfolioMiniRow key={inv.startupId} investment={inv} startup={startup} />
-                    ))}
+              {/* ポートフォリオ（同一カード内） */}
+              {currentPlayer.portfolio.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-slate-700">
+                  <h4 className="text-slate-400 text-xs font-medium uppercase tracking-wider mb-2">
+                    ポートフォリオ
+                    <span className="ml-1.5 text-slate-500 normal-case">
+                      {aliveCount(currentPlayer, game.allStartups)}社生存 / {currentPlayer.portfolio.length}社
+                    </span>
+                  </h4>
+                  <div className="space-y-2">
+                    {[...currentPlayer.portfolio]
+                      .map(inv => {
+                        const startup = game.allStartups.find(s => s.id === inv.startupId);
+                        if (!startup) return null;
+                        const isExited = EXITED_STATUSES.has(startup.status);
+                        const isDead = startup.status === 'dead';
+                        const terminated = isExited || isDead;
+                        const costBasis = inv.rounds.reduce((s, r) => s + r.amount, 0);
+                        const currentValue = isExited
+                          ? (startup.exitValuation ?? startup.currentValuation) * (inv.ownershipPercent / 100)
+                          : isDead ? 0
+                          : startup.currentValuation * (inv.ownershipPercent / 100);
+                        const multiple = costBasis > 0 ? currentValue / costBasis : 0;
+                        return { inv, startup, terminated, multiple };
+                      })
+                      .filter((x): x is NonNullable<typeof x> => x !== null)
+                      .sort((a, b) => {
+                        if (a.terminated !== b.terminated) return a.terminated ? 1 : -1;
+                        return b.multiple - a.multiple;
+                      })
+                      .map(({ inv, startup }) => (
+                        <PortfolioMiniRow key={inv.startupId} investment={inv} startup={startup} />
+                      ))}
+                  </div>
                 </div>
-              </section>
-            )}
+              )}
+            </section>
           </aside>
         )}
 
@@ -341,30 +344,30 @@ function PhaseStepIndicator({ currentPhase }: { currentPhase: string }) {
   return (
     <div className="flex items-center gap-0">
       {PHASE_STEPS.map((step, i) => {
-        const isDone    = i < activeIdx;
-        const isActive  = i === activeIdx;
-        const isFuture  = i > activeIdx;
+        const isDone   = i < activeIdx;
+        const isActive = i === activeIdx;
         return (
           <div key={step.phase} className="flex items-center">
             {/* ステップノード */}
             <div className="flex flex-col items-center">
-              <div className={`w-2 h-2 rounded-full transition-colors ${
-                isDone   ? 'bg-indigo-500' :
-                isActive ? 'bg-indigo-400 ring-2 ring-indigo-400/40' :
-                           'bg-slate-600'
-              }`} />
-              <span className={`text-[10px] mt-0.5 whitespace-nowrap transition-colors ${
-                isDone   ? 'text-indigo-500' :
-                isActive ? 'text-indigo-300 font-semibold' :
-                isFuture ? 'text-slate-600' :
-                           'text-slate-500'
+              <div className={`rounded-full flex items-center justify-center transition-all ${
+                isDone   ? 'w-3 h-3 bg-indigo-500' :
+                isActive ? 'w-3 h-3 bg-indigo-400 ring-2 ring-indigo-400/50' :
+                           'w-2.5 h-2.5 bg-slate-700'
+              }`}>
+                {isDone && <span className="text-[7px] text-white font-bold leading-none">✓</span>}
+              </div>
+              <span className={`mt-0.5 whitespace-nowrap transition-colors ${
+                isDone   ? 'text-[10px] text-indigo-400' :
+                isActive ? 'text-xs font-bold text-white' :
+                           'text-[10px] text-slate-600'
               }`}>
                 {step.label}
               </span>
             </div>
             {/* コネクター（最後以外） */}
             {i < PHASE_STEPS.length - 1 && (
-              <div className={`h-px w-6 sm:w-10 mx-1 mb-3 transition-colors ${
+              <div className={`h-px w-8 sm:w-12 mx-1 mb-3.5 transition-colors ${
                 i < activeIdx ? 'bg-indigo-500' : 'bg-slate-700'
               }`} />
             )}
