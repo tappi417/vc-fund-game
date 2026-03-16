@@ -53,8 +53,11 @@ export function TitleScreen() {
         </div>
 
         {/* フッター */}
-        <div className="mt-16 text-slate-500 text-sm">
+        <div className="mt-16 text-slate-500 text-sm space-y-1">
           <p>2〜6人 ・ 20〜30分 ・ 1台の端末でプレイ</p>
+          <p className="text-slate-600 text-xs">
+            v1.0.0 &nbsp;·&nbsp; © 2026 Tz Studio
+          </p>
         </div>
       </div>
     </div>
